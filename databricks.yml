@@ -1,0 +1,35 @@
+bundle:
+  name: ecommerce-lakehouse
+
+include:
+  - databricks/resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog for the lakehouse
+    default: ecommerce
+  kafka_bootstrap_servers:
+    description: Kafka bootstrap endpoint reachable from the cluster
+  service_principal_name:
+    description: Production service principal application ID
+    default: ""
+  postgres_jdbc_url:
+    description: JDBC URL for the PostgreSQL serving warehouse
+    default: jdbc:postgresql://postgres.example.internal:5432/warehouse
+  postgres_secret_scope:
+    description: Databricks secret scope containing warehouse credentials
+    default: ecommerce
+
+workspace:
+  root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/prod
+    run_as:
+      service_principal_name: ${var.service_principal_name}

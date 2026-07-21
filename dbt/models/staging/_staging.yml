@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: stg_events
+    description: Canonical typed event interface consumed by intermediate dbt models.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: event_type
+        data_tests: [not_null]
+      - name: event_timestamp
+        data_tests: [not_null]

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install test dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m pytest --cov=generator --cov=warehouse --cov-report=term-missing
+      - name: Python lint
+        run: python -m ruff check generator warehouse tests dashboards/bootstrap_metabase.py airflow/include airflow/dags
+      - name: Compile Python sources
+        run: python -m compileall -q generator warehouse dashboards airflow databricks
+      - name: Validate Compose model
+        run: docker compose config --quiet

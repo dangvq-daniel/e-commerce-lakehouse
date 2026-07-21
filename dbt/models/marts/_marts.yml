@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: One row per observed customer with lifetime behavioral and sales metrics.
+    columns:
+      - name: customer_key
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests: [unique, not_null]
+
+  - name: dim_product
+    description: Current product attributes derived from the latest observed activity.
+    columns:
+      - name: product_key
+        data_tests: [unique, not_null]
+      - name: product_id
+        data_tests: [unique, not_null]
+
+  - name: dim_date
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+
+  - name: dim_country
+    columns:
+      - name: country_key
+        data_tests: [unique, not_null]
+
+  - name: fact_orders
+    columns:
+      - name: order_line_key
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_key
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_key
+      - name: product_key
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+      - name: payment_method
+        data_tests:
+          - accepted_values:
+              values: ['credit_card', 'paypal', 'debit_card']
+
+  - name: fact_sales
+    columns:
+      - name: sale_key
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests: [not_null]
+      - name: product_id
+        data_tests: [not_null]
+
+  - name: fact_sessions
+    columns:
+      - name: session_id
+        data_tests: [unique, not_null]
+
+  - name: fact_inventory
+    columns:
+      - name: inventory_event_key
+        data_tests: [unique, not_null]
+      - name: product_key
+        data_tests:
+          - relationships:
+              to: ref('dim_product')
+              field: product_key

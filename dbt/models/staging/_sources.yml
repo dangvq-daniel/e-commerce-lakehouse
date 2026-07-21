@@ -1,0 +1,35 @@
+version: 2
+
+sources:
+  - name: silver
+    config:
+      enabled: "{{ target.type == 'databricks' }}"
+    description: Validated Delta tables produced by Databricks Structured Streaming.
+    schema: silver
+    tables:
+      - name: events
+        loaded_at_field: _ingestion_time
+        freshness:
+          warn_after: {count: 5, period: minute}
+          error_after: {count: 15, period: minute}
+      - name: orders
+      - name: refunds
+      - name: customer_activity
+      - name: product_activity
+      - name: inventory
+
+  - name: raw
+    config:
+      enabled: "{{ target.type == 'postgres' }}"
+    schema: raw
+    description: Local compatibility input used only by the PostgreSQL development target.
+    tables:
+      - name: events
+        description: Immutable event envelopes with the original JSON payload.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 5, period: minute}
+          error_after: {count: 15, period: minute}
+        columns:
+          - name: payload
+            description: Original JSON payload retained by the local compatibility sink.

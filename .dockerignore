@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+dbt/logs
+dbt/target
+dbt/dbt_packages
+airflow/logs
+.env
+

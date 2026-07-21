@@ -1,0 +1,34 @@
+dashboards:
+  - name: Executive Dashboard
+    description: Real-time commercial performance and revenue trends.
+    cards:
+      - {name: Revenue Today, query: executive/revenue_today.sql, display: scalar}
+      - {name: Orders Today, query: executive/orders_today.sql, display: scalar}
+      - {name: Average Order Value, query: executive/average_order_value.sql, display: scalar}
+      - {name: Revenue Trend, query: executive/revenue_trend.sql, display: line}
+      - {name: Top Categories, query: executive/top_categories.sql, display: bar}
+      - {name: Top Products, query: executive/top_products.sql, display: table}
+
+  - name: Customer Dashboard
+    description: Customer activity, growth, repeat purchasing, and lifetime value.
+    cards:
+      - {name: Active Users, query: customer/active_users.sql, display: scalar}
+      - {name: New vs Returning Customers, query: customer/new_vs_returning.sql, display: bar}
+      - {name: Customer Lifetime Value, query: customer/customer_lifetime_value.sql, display: table}
+      - {name: Customer Retention, query: customer/retention.sql, display: scalar}
+
+  - name: Product Dashboard
+    description: Product demand, conversion, inventory, and refund performance.
+    cards:
+      - {name: Product Sales, query: product/product_sales.sql, display: table}
+      - {name: Product Conversion, query: product/product_conversion.sql, display: table}
+      - {name: Inventory Movement, query: product/inventory_movement.sql, display: table}
+      - {name: Refund Rate, query: product/refund_rate.sql, display: scalar}
+
+  - name: Operations Dashboard
+    description: Funnel health, peak hours, and customer traffic.
+    cards:
+      - {name: Cart Abandonment, query: operations/cart_abandonment.sql, display: scalar}
+      - {name: Peak Shopping Hours, query: operations/peak_shopping_hours.sql, display: bar}
+      - {name: Traffic Trend, query: operations/traffic_trend.sql, display: line}
+
