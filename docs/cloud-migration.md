@@ -4,6 +4,27 @@ The application contract, dbt semantic layer, tests, and dashboard SQL remain po
 Infrastructure identity, networking, storage paths, cluster policy, and BI provisioning
 are environment-specific and should be delivered through IaC.
 
+## Budget recruiter deployment
+
+The public portfolio surface uses Render plus Supabase without redefining the canonical
+production architecture. A single free Render web service runs the dashboard and resumes
+a low-rate synthetic producer on every process wake. The producer claims a PostgreSQL
+lease, creates the schema idempotently, seeds only an empty database, and appends events
+while the web service remains active. Supabase PostgreSQL preserves those events across
+Render spin-downs and deploys.
+
+This deployment is a live compatibility demonstration, not a claim that the full Kafka,
+Databricks, Delta, Airflow, dbt, and Metabase stack can run continuously for $5/month.
+The production path remains the diagram in `docs/architecture.md`.
+
+Operational caveats:
+
+- Render free web services sleep after idle time and may take about a minute to wake.
+- Render filesystems are ephemeral, so runtime state belongs in PostgreSQL.
+- Supabase free projects can pause after a quiet week and can be resumed from its dashboard.
+- Render should use Supabase's IPv4-compatible session pooler connection string.
+- Synthetic event retention must be monitored against Supabase's free database limit.
+
 ## AWS target
 
 | Local/reference component | AWS production service | Migration work |

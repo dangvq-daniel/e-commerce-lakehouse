@@ -1,8 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type RangeKey = "24H" | "7D" | "30D";
+
+type LiveAnalytics = {
+  snapshot: {
+    revenue: string;
+    orders: string;
+    aov: string;
+    conversion: string;
+    chart: number[];
+    labels: string[];
+    categories: { name: string; value: string; share: number }[];
+  };
+  recentEvents: { time: string; type: string; id: string; value: string; status: string }[];
+  funnel: {
+    product_views: number;
+    cart_additions: number;
+    checkout_starts: number;
+    purchases: number;
+  };
+  runtime: {
+    state: "streaming" | "waking";
+    freshnessSeconds: number;
+    eventsPerSecond: number;
+    totalEvents: number;
+    lastStartedAt: string | null;
+    eventsThisWake: number;
+  };
+};
 
 const snapshots: Record<
   RangeKey,
@@ -101,8 +128,50 @@ const events = [
 
 export default function Home() {
   const [range, setRange] = useState<RangeKey>("24H");
-  const snapshot = snapshots[range];
+  const [liveData, setLiveData] = useState<LiveAnalytics | null>(null);
+  const [connectionState, setConnectionState] = useState<"connecting" | "live" | "retrying">(
+    "connecting",
+  );
+  const snapshot = liveData ? { ...snapshots[range], ...liveData.snapshot } : snapshots[range];
   const chartMax = useMemo(() => Math.max(...snapshot.chart), [snapshot.chart]);
+  const displayEvents = liveData?.recentEvents ?? events.map(([time, type, id, value, status]) => ({
+    time,
+    type,
+    id,
+    value,
+    status,
+  }));
+  const funnel = liveData?.funnel ?? {
+    product_views: 156_420,
+    cart_additions: 38_906,
+    checkout_starts: 12_744,
+    purchases: 7_509,
+  };
+  const funnelMax = Math.max(funnel.product_views, 1);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await fetch(`/api/analytics?range=${range}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`analytics returned ${response.status}`);
+        const next = (await response.json()) as LiveAnalytics;
+        if (active) {
+          setLiveData(next);
+          setConnectionState("live");
+        }
+      } catch (error) {
+        console.warn("Live analytics are not ready", error);
+        if (active) setConnectionState("retrying");
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, 5_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [range]);
 
   return (
     <main>
@@ -121,7 +190,7 @@ export default function Home() {
         </nav>
         <a
           className="header-link"
-          href="https://github.com/qdang2845-ml/e-commerce-lakehouse"
+          href="https://github.com/dangvq-daniel/e-commerce-lakehouse"
           target="_blank"
           rel="noreferrer"
         >
@@ -132,7 +201,9 @@ export default function Home() {
       <section className="hero" id="top">
         <div className="hero-grid" aria-hidden="true" />
         <div className="hero-copy">
-          <div className="status-pill"><span /> Pipeline snapshot healthy</div>
+          <div className="status-pill">
+            <span /> {connectionState === "live" ? "Cloud stream connected" : "Waking cloud stream"}
+          </div>
           <p className="eyebrow">REAL-TIME E-COMMERCE ANALYTICS</p>
           <h1>From clickstream<br />to decision, <em>in seconds.</em></h1>
           <p className="hero-lede">
@@ -143,7 +214,7 @@ export default function Home() {
             <a className="button primary" href="#analytics">Explore the analytics</a>
             <a
               className="button secondary"
-              href="https://github.com/qdang2845-ml/e-commerce-lakehouse"
+              href="https://github.com/dangvq-daniel/e-commerce-lakehouse"
               target="_blank"
               rel="noreferrer"
             >
@@ -153,12 +224,12 @@ export default function Home() {
         </div>
         <div className="hero-console" aria-label="Platform status summary">
           <div className="console-top">
-            <span>PLATFORM / LIVE SNAPSHOT</span>
-            <span className="console-state">● HEALTHY</span>
+            <span>RENDER / LIVE RUNTIME</span>
+            <span className="console-state">● {connectionState.toUpperCase()}</span>
           </div>
           <div className="console-metric">
             <span>EVENT THROUGHPUT</span>
-            <strong>5.2 <small>events/sec</small></strong>
+            <strong>{liveData?.runtime.eventsPerSecond ?? "—"} <small>events/sec</small></strong>
             <div className="micro-bars" aria-hidden="true">
               {[34, 48, 39, 64, 52, 71, 59, 82, 68, 88, 74, 93].map((height, index) => (
                 <i key={index} style={{ height: `${height}%` }} />
@@ -166,12 +237,12 @@ export default function Home() {
             </div>
           </div>
           <div className="console-grid">
-            <div><span>Freshness</span><strong>42 sec</strong></div>
-            <div><span>Valid records</span><strong>99.98%</strong></div>
-            <div><span>dbt checks</span><strong>55 / 55</strong></div>
-            <div><span>Pipeline state</span><strong className="good">Passing</strong></div>
+            <div><span>Freshness</span><strong>{liveData ? `${liveData.runtime.freshnessSeconds} sec` : "—"}</strong></div>
+            <div><span>Persisted events</span><strong>{liveData?.runtime.totalEvents.toLocaleString() ?? "—"}</strong></div>
+            <div><span>This wake</span><strong>{liveData?.runtime.eventsThisWake.toLocaleString() ?? "—"}</strong></div>
+            <div><span>Runtime state</span><strong className="good">{liveData?.runtime.state ?? "starting"}</strong></div>
           </div>
-          <p className="console-foot">Synthetic snapshot · deterministic seed · no customer data</p>
+          <p className="console-foot">Synthetic stream · durable PostgreSQL history · no customer data</p>
         </div>
       </section>
 
@@ -200,22 +271,22 @@ export default function Home() {
           <article className="kpi-card">
             <div className="kpi-label"><span>NET REVENUE</span><i>01</i></div>
             <strong>{snapshot.revenue}</strong>
-            <p><b>{snapshot.revenueTrend}</b> vs previous period</p>
+            <p><b>LIVE</b> persisted PostgreSQL result</p>
           </article>
           <article className="kpi-card">
             <div className="kpi-label"><span>ORDERS</span><i>02</i></div>
             <strong>{snapshot.orders}</strong>
-            <p><b>{snapshot.orderTrend}</b> vs previous period</p>
+            <p><b>LIVE</b> completed purchase events</p>
           </article>
           <article className="kpi-card">
             <div className="kpi-label"><span>AVERAGE ORDER</span><i>03</i></div>
             <strong>{snapshot.aov}</strong>
-            <p><b>{snapshot.aovTrend}</b> vs previous period</p>
+            <p><b>LIVE</b> net revenue per order</p>
           </article>
           <article className="kpi-card">
             <div className="kpi-label"><span>CONVERSION</span><i>04</i></div>
             <strong>{snapshot.conversion}</strong>
-            <p><b>{snapshot.conversionTrend}</b> vs previous period</p>
+            <p><b>LIVE</b> orders per active session</p>
           </article>
         </div>
 
@@ -254,29 +325,29 @@ export default function Home() {
           <article className="panel funnel-panel">
             <div className="panel-heading">
               <div><span>CUSTOMER JOURNEY</span><strong>Session conversion funnel</strong></div>
-              <div className="legend">156k sessions</div>
+              <div className="legend">live event counts</div>
             </div>
             <div className="funnel">
-              <div style={{ width: "100%" }}><span>Product views</span><b>156,420</b></div>
-              <div style={{ width: "78%" }}><span>Cart additions</span><b>38,906</b></div>
-              <div style={{ width: "57%" }}><span>Checkout starts</span><b>12,744</b></div>
-              <div style={{ width: "39%" }}><span>Purchases</span><b>7,509</b></div>
+              <div style={{ width: "100%" }}><span>Product views</span><b>{funnel.product_views.toLocaleString()}</b></div>
+              <div style={{ width: `${Math.max(40, funnel.cart_additions / funnelMax * 100)}%` }}><span>Cart additions</span><b>{funnel.cart_additions.toLocaleString()}</b></div>
+              <div style={{ width: `${Math.max(40, funnel.checkout_starts / funnelMax * 100)}%` }}><span>Checkout starts</span><b>{funnel.checkout_starts.toLocaleString()}</b></div>
+              <div style={{ width: `${Math.max(40, funnel.purchases / funnelMax * 100)}%` }}><span>Purchases</span><b>{funnel.purchases.toLocaleString()}</b></div>
             </div>
           </article>
 
           <article className="panel events-panel">
             <div className="panel-heading">
               <div><span>RECENT EVENTS</span><strong>Validated Silver stream</strong></div>
-              <div className="live-dot"><i /> live-like</div>
+              <div className="live-dot"><i /> {connectionState === "live" ? "live" : "connecting"}</div>
             </div>
             <div className="event-table" role="table" aria-label="Recent synthetic events">
-              {events.map(([time, type, id, value, status]) => (
-                <div className="event-row" role="row" key={`${time}-${id}`}>
-                  <span role="cell">{time}</span>
-                  <strong role="cell">{type}</strong>
-                  <code role="cell">{id}</code>
-                  <b role="cell">{value}</b>
-                  <i role="cell">{status}</i>
+              {displayEvents.map((event) => (
+                <div className="event-row" role="row" key={`${event.time}-${event.id}`}>
+                  <span role="cell">{event.time}</span>
+                  <strong role="cell">{event.type}</strong>
+                  <code role="cell">{event.id}</code>
+                  <b role="cell">{event.value}</b>
+                  <i role="cell">{event.status}</i>
                 </div>
               ))}
             </div>
@@ -316,6 +387,11 @@ export default function Home() {
             <div><span>CONTROLS</span><strong>dbt</strong></div>
             <p>Scheduling · retries · dependency management · failure visibility</p>
           </div>
+          <div className="demo-runtime">
+            <strong>LIVE FREE-TIER DEMO</strong>
+            <span>Render web process → resumable synthetic producer → Supabase PostgreSQL</span>
+            <p>The cloud demo uses the repository&apos;s compatibility path; the canonical production design above remains unchanged.</p>
+          </div>
         </div>
       </section>
 
@@ -354,7 +430,7 @@ export default function Home() {
             <span className="quality-number">04</span>
             <h3>Freshness guardrails</h3>
             <p>Silver freshness blocks stale Gold publication before dashboards can drift.</p>
-            <b>Latest event: 42 seconds</b>
+            <b>Latest event: {liveData ? `${liveData.runtime.freshnessSeconds} seconds` : "connecting"}</b>
           </article>
         </div>
       </section>
@@ -389,9 +465,9 @@ export default function Home() {
           <strong>E-commerce Lakehouse</strong>
           <p>Synthetic analytics. Production-shaped engineering.</p>
         </div>
-        <p className="budget-note">Public recruiter snapshot · hosted within a $5/month ceiling</p>
+        <p className="budget-note">Live Render demo · durable Supabase PostgreSQL · $0/month target</p>
         <a
-          href="https://github.com/qdang2845-ml/e-commerce-lakehouse"
+          href="https://github.com/dangvq-daniel/e-commerce-lakehouse"
           target="_blank"
           rel="noreferrer"
         >

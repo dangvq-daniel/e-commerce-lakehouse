@@ -1,6 +1,8 @@
 # Real-Time E-commerce Analytics Lakehouse
 
-[View the public interactive recruiter demo](https://ecommerce-lakehouse-portfolio.charronp20.chatgpt.site)
+The interactive recruiter demo is deployed as a free Render web service backed by
+Supabase PostgreSQL. Its generated events resume whenever Render wakes the application,
+and historical data survives service sleep and redeployment.
 
 An end-to-end streaming analytics reference platform built around Kafka, Databricks,
 Delta Lake, Airflow, dbt, PostgreSQL, and Metabase. It produces related customer and
@@ -99,6 +101,23 @@ To run only the lighter ingestion stack, omit the Airflow profile:
 ```powershell
 docker compose up -d --build
 ```
+
+## Recruiter cloud demo
+
+The budget deployment deliberately keeps the canonical architecture above as the
+production design while running a compact compatibility path for live demonstrations:
+
+- Render hosts the Next.js dashboard and a resumable synthetic event producer in one
+  free web process.
+- Supabase PostgreSQL stores event history outside Render's ephemeral filesystem.
+- A database lease prevents duplicate producers during rolling deployments.
+- The application seeds historical events only when the table is empty, then appends
+  one new event every three seconds while awake.
+- `render.yaml` is the deployment blueprint; `DATABASE_URL` remains a Render secret.
+
+This path demonstrates cold-start recovery and durable analytics within the $5 monthly
+ceiling. Kafka, Databricks, Delta, Airflow, dbt, and Metabase remain implemented and
+documented as the full platform, but they are not kept running on free-tier hosting.
 
 ## Verify data and models
 

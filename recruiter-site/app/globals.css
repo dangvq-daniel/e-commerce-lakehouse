@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  --font-geist-sans: "Segoe UI", Arial, sans-serif;
+  --font-geist-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
   --ink: #071111;
   --ink-soft: #0b1717;
   --panel: #0d1c1b;
@@ -185,6 +187,14 @@ h1 em { color: var(--accent-2); font-style: normal; font-weight: 570; }
 .control-plane strong { display: block; margin-top: 6px; font-size: 14px; }
 .control-plane > i { color: #287e6b; font-style: normal; font-size: 23px; }
 .control-plane p { margin: 0 0 0 auto; color: #4b645c; font: 500 10px/1.6 var(--font-geist-mono); }
+.demo-runtime {
+  margin-top: 12px; padding: 18px 22px; display: grid;
+  grid-template-columns: auto 1fr; gap: 8px 22px; align-items: center;
+  border: 1px solid rgba(8,35,29,.17); background: #f5faf7;
+}
+.demo-runtime strong { color: #287e6b; font: 700 9px/1 var(--font-geist-mono); letter-spacing: .1em; }
+.demo-runtime span { font: 600 11px/1.4 var(--font-geist-mono); }
+.demo-runtime p { grid-column: 2; margin: 0; color: #60756e; font-size: 11px; line-height: 1.5; }
 
 .quality-score { width: 172px; height: 172px; flex: 0 0 auto; display: grid; place-items: center; text-align: center; border-radius: 50%; background: conic-gradient(var(--accent) 99.98%, rgba(255,255,255,.08) 0); position: relative; }
 .quality-score::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--ink); }
@@ -252,6 +262,8 @@ footer a { justify-self: end; color: var(--accent); font: 600 11px/1 var(--font-
   .event-row code, .event-row i { display: none; }
   .control-plane { align-items: flex-start; flex-wrap: wrap; }
   .control-plane p { width: 100%; margin: 0; }
+  .demo-runtime { grid-template-columns: 1fr; }
+  .demo-runtime p { grid-column: 1; }
   .quality-score { width: 150px; height: 150px; }
   footer { grid-template-columns: 1fr; padding: 36px 20px; }
   footer .budget-note { justify-self: start; }

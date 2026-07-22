@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ecommerce-lakehouse-demo
+    runtime: node
+    plan: free
+    region: ohio
+    rootDir: recruiter-site
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: DATABASE_URL
+        sync: false
+      - key: DEMO_STREAMING_ENABLED
+        value: "true"
+      - key: EVENT_INTERVAL_MS
+        value: "3000"
+      - key: SEED_EVENT_COUNT
+        value: "1500"
