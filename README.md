@@ -1,5 +1,7 @@
 # Real-Time E-commerce Analytics Lakehouse
 
+[Open the live recruiter demo](https://ecommerce-lakehouse-demo.onrender.com)
+
 The interactive recruiter demo is deployed as a free Render web service backed by
 Supabase PostgreSQL. Its generated events resume whenever Render wakes the application,
 and historical data survives service sleep and redeployment.

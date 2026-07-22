@@ -1,5 +1,7 @@
 # Recruiter cloud demo
 
+[Live application](https://ecommerce-lakehouse-demo.onrender.com)
+
 The public portfolio application runs as one Render web service and stores all generated
 events in Supabase PostgreSQL. Render can spin the process down after idle time; the next
 HTTP request wakes it, the instrumentation hook claims a database-backed lease, and the
