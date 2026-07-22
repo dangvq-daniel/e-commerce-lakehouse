@@ -146,6 +146,11 @@ async function claimLease() {
         WHEN portfolio.stream_leases.owner_id = EXCLUDED.owner_id
           THEN portfolio.stream_leases.last_started_at
         ELSE NOW()
+      END,
+      events_written = CASE
+        WHEN portfolio.stream_leases.owner_id = EXCLUDED.owner_id
+          THEN portfolio.stream_leases.events_written
+        ELSE 0
       END
     WHERE portfolio.stream_leases.expires_at < NOW()
        OR portfolio.stream_leases.owner_id = EXCLUDED.owner_id

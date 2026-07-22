@@ -251,7 +251,7 @@ export default function Home() {
           <div>
             <p className="eyebrow">BUSINESS INTELLIGENCE</p>
             <h2>Commerce pulse</h2>
-            <p>Interactive metrics generated from the platform&apos;s Gold analytics models.</p>
+            <p>Live metrics aggregated from durable PostgreSQL history; canonical Gold models remain in the repository.</p>
           </div>
           <div className="range-control" aria-label="Select reporting period">
             {(Object.keys(snapshots) as RangeKey[]).map((item) => (
@@ -324,8 +324,8 @@ export default function Home() {
 
           <article className="panel funnel-panel">
             <div className="panel-heading">
-              <div><span>CUSTOMER JOURNEY</span><strong>Session conversion funnel</strong></div>
-              <div className="legend">live event counts</div>
+              <div><span>STREAM ACTIVITY</span><strong>Live commerce event composition</strong></div>
+              <div className="legend">selected range</div>
             </div>
             <div className="funnel">
               <div style={{ width: "100%" }}><span>Product views</span><b>{funnel.product_views.toLocaleString()}</b></div>
@@ -337,7 +337,7 @@ export default function Home() {
 
           <article className="panel events-panel">
             <div className="panel-heading">
-              <div><span>RECENT EVENTS</span><strong>Validated Silver stream</strong></div>
+              <div><span>RECENT EVENTS</span><strong>Persisted synthetic stream</strong></div>
               <div className="live-dot"><i /> {connectionState === "live" ? "live" : "connecting"}</div>
             </div>
             <div className="event-table" role="table" aria-label="Recent synthetic events">
