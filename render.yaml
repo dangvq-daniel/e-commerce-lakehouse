@@ -17,6 +17,12 @@ services:
       - key: DEMO_STREAMING_ENABLED
         value: "true"
       - key: EVENT_INTERVAL_MS
-        value: "3000"
+        value: "60000"
       - key: SEED_EVENT_COUNT
         value: "1500"
+      - key: MAX_EVENT_ROWS
+        value: "50000"
+      - key: EVENT_RETENTION_DAYS
+        value: "35"
+      - key: DATABASE_WRITE_GUARD_BYTES
+        value: "200000000"

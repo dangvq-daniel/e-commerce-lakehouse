@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { initializeDatabase, requireDatabase } from "./database";
+import {
+  databaseWriteGuardBytes,
+  eventIntervalMs,
+  eventRetentionDays,
+  maxEventRows,
+  streamHeartbeatMs,
+} from "./demo-config";
 
 type DemoEvent = {
   event_id: string;
@@ -52,6 +59,10 @@ const eventTypes = [
 const ownerId = `${process.env.RENDER_INSTANCE_ID ?? "local"}-${randomUUID()}`;
 let started = false;
 let sequence = 0;
+let historyReady = false;
+let eventsSinceMaintenance = 0;
+let storageGuardCheckedAt = 0;
+let writesPausedForStorage = false;
 
 function pick<T>(values: T[]) {
   return values[Math.floor(Math.random() * values.length)];
@@ -132,9 +143,58 @@ async function seedHistoryIfNeeded() {
   }
 }
 
+async function pruneHistoryIfNeeded() {
+  const db = requireDatabase();
+  const retentionCutoff = new Date(Date.now() - eventRetentionDays * 24 * 60 * 60 * 1_000);
+
+  await db`
+    DELETE FROM portfolio.events
+    WHERE event_timestamp < ${retentionCutoff}
+  `;
+
+  const [{ count }] = await db<{ count: number }[]>`
+    SELECT COUNT(*)::int AS count FROM portfolio.events
+  `;
+  const overflow = Math.max(count - maxEventRows, 0);
+  if (!overflow) return;
+
+  await db`
+    DELETE FROM portfolio.events
+    WHERE event_id IN (
+      SELECT event_id
+      FROM portfolio.events
+      ORDER BY event_timestamp ASC
+      LIMIT ${overflow}
+    )
+  `;
+}
+
+async function storageAllowsWrite(force = false) {
+  const now = Date.now();
+  if (!force && now - storageGuardCheckedAt < 5 * 60 * 1_000) {
+    return !writesPausedForStorage;
+  }
+
+  const db = requireDatabase();
+  const [{ database_size_bytes }] = await db<{ database_size_bytes: number }[]>`
+    SELECT pg_database_size(current_database())::float AS database_size_bytes
+  `;
+  storageGuardCheckedAt = now;
+  writesPausedForStorage = database_size_bytes >= databaseWriteGuardBytes;
+
+  if (writesPausedForStorage) {
+    console.warn(`Demo writes paused by storage guard at ${database_size_bytes} bytes`);
+  }
+  return !writesPausedForStorage;
+}
+
 async function claimLease() {
   const db = requireDatabase();
-  const claimed = await db`
+  const claimed = await db<{
+    owner_id: string;
+    last_event_at: string | null;
+    events_written: number;
+  }[]>`
     INSERT INTO portfolio.stream_leases (
       lease_name, owner_id, expires_at, last_started_at
     ) VALUES (
@@ -155,13 +215,25 @@ async function claimLease() {
       END
     WHERE portfolio.stream_leases.expires_at < NOW()
        OR portfolio.stream_leases.owner_id = EXCLUDED.owner_id
-    RETURNING owner_id
+    RETURNING owner_id, last_event_at::text, events_written::int
   `;
-  return claimed.length === 1;
+  return claimed.length === 1 ? claimed[0] : null;
 }
 
 async function tick() {
-  if (!(await claimLease())) return;
+  const lease = await claimLease();
+  if (!lease) return;
+
+  if (!historyReady) {
+    await pruneHistoryIfNeeded();
+    if (await storageAllowsWrite(true)) await seedHistoryIfNeeded();
+    historyReady = true;
+  }
+
+  if (!(await storageAllowsWrite())) return;
+  const lastEventMs = lease.last_event_at ? new Date(lease.last_event_at).getTime() : 0;
+  if (lastEventMs && Date.now() - lastEventMs < eventIntervalMs) return;
+
   const db = requireDatabase();
   const event = makeEvent();
   await insertEvents([event]);
@@ -172,6 +244,13 @@ async function tick() {
         expires_at = NOW() + INTERVAL '30 seconds'
     WHERE lease_name = 'render-web-stream' AND owner_id = ${ownerId}
   `;
+
+  eventsSinceMaintenance += 1;
+  if (eventsSinceMaintenance >= 120) {
+    eventsSinceMaintenance = 0;
+    await pruneHistoryIfNeeded();
+    await storageAllowsWrite(true);
+  }
 }
 
 export async function startEventStream() {
@@ -180,7 +259,6 @@ export async function startEventStream() {
 
   try {
     await initializeDatabase();
-    await seedHistoryIfNeeded();
     await tick();
   } catch (error) {
     started = false;
@@ -188,10 +266,11 @@ export async function startEventStream() {
     return;
   }
 
-  const intervalMs = Math.max(Number(process.env.EVENT_INTERVAL_MS ?? 3_000), 1_000);
   const timer = setInterval(() => {
     void tick().catch((error) => console.error("Demo event tick failed", error));
-  }, intervalMs);
+  }, streamHeartbeatMs);
   timer.unref();
-  console.log(`Synthetic event stream started; interval=${intervalMs}ms owner=${ownerId}`);
+  console.log(
+    `Synthetic event stream started; event_interval=${eventIntervalMs}ms heartbeat=${streamHeartbeatMs}ms owner=${ownerId}`,
+  );
 }

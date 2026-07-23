@@ -13,11 +13,16 @@ sleep, restart, and deploy cycles.
 - `DATABASE_URL`: Supabase **Session pooler** connection string (port 5432). Render needs
   the IPv4-compatible pooler, not Supabase's IPv6-only direct endpoint.
 - `DEMO_STREAMING_ENABLED`: set to `true` to start the producer with the web process.
-- `EVENT_INTERVAL_MS`: delay between events; defaults to 3000 ms.
-- `SEED_EVENT_COUNT`: minimum historical baseline; only missing events are added and existing history is never truncated.
+- `EVENT_INTERVAL_MS`: delay between events; defaults to and is clamped at a minimum of 60000 ms.
+- `SEED_EVENT_COUNT`: minimum historical baseline; only missing events are added.
+- `MAX_EVENT_ROWS`: hard event-table cap; defaults to 50000 rows.
+- `EVENT_RETENTION_DAYS`: rolling history window; defaults to 35 days.
+- `DATABASE_WRITE_GUARD_BYTES`: total database size that pauses writes; defaults to 200000000 bytes.
 
 The application creates the `portfolio` schema and its tables idempotently on startup.
-It never truncates existing event history.
+It never truncates the table wholesale. Maintenance rotates only events older than the
+retention window or rows beyond the configured cap, and the dashboard reports current
+database usage against the 500 MB Supabase Free quota.
 
 ## Local verification
 

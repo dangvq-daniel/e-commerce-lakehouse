@@ -12,6 +12,8 @@ a low-rate synthetic producer on every process wake. The producer claims a Postg
 lease, creates the schema idempotently, and tops up a small historical baseline without
 truncating existing data. It appends events while the web service remains active.
 Supabase PostgreSQL preserves those events across Render spin-downs and deploys.
+The public producer writes at most once per minute, rotates history after 35 days or
+50,000 rows, and stops writing if total database size reaches 200 MB.
 
 This deployment is a live compatibility demonstration, not a claim that the full Kafka,
 Databricks, Delta, Airflow, dbt, and Metabase stack can run continuously for $5/month.
@@ -23,7 +25,8 @@ Operational caveats:
 - Render filesystems are ephemeral, so runtime state belongs in PostgreSQL.
 - Supabase free projects can pause after a quiet week and can be resumed from its dashboard.
 - Render should use Supabase's IPv4-compatible session pooler connection string.
-- Synthetic event retention must be monitored against Supabase's free database limit.
+- The dashboard exposes database usage against Supabase's 500 MB free database limit;
+  the 200 MB write guard retains headroom for indexes and platform metadata.
 
 ## AWS target
 

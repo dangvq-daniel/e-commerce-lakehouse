@@ -114,7 +114,9 @@ production design while running a compact compatibility path for live demonstrat
 - Supabase PostgreSQL stores event history outside Render's ephemeral filesystem.
 - A database lease prevents duplicate producers during rolling deployments.
 - The application tops up a small historical baseline only when below the configured
-  minimum, then appends one new event every three seconds while awake.
+  minimum, then appends one event per minute while awake.
+- Public-demo history is bounded to 50,000 rows and 35 days. A database-size guard
+  stops writes at 200 MB, well before Supabase Free's 500 MB read-only threshold.
 - `render.yaml` is the deployment blueprint; `DATABASE_URL` remains a Render secret.
 
 This path demonstrates cold-start recovery and durable analytics within the $5 monthly

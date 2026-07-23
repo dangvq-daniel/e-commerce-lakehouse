@@ -1,4 +1,11 @@
 import { initializeDatabase, requireDatabase } from "@/lib/database";
+import {
+  databaseWriteGuardBytes,
+  eventIntervalMs,
+  eventRetentionDays,
+  maxEventRows,
+  supabaseFreeDatabaseQuotaBytes,
+} from "@/lib/demo-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +42,8 @@ export async function GET(request: Request) {
       sessions: number;
       latest_event_at: string | null;
       total_events: number;
-      events_last_minute: number;
+      events_last_five_minutes: number;
+      database_size_bytes: number;
     }[]>`
       SELECT
         COALESCE(SUM(CASE WHEN event_type = 'purchase' THEN amount WHEN event_type = 'refund' THEN -amount ELSE 0 END), 0)::float AS revenue,
@@ -43,7 +51,8 @@ export async function GET(request: Request) {
         COUNT(DISTINCT session_id)::int AS sessions,
         MAX(event_timestamp)::text AS latest_event_at,
         (SELECT COUNT(*)::int FROM portfolio.events) AS total_events,
-        COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '1 minute')::int AS events_last_minute
+        COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '5 minutes')::int AS events_last_five_minutes,
+        pg_database_size(current_database())::float AS database_size_bytes
       FROM portfolio.events
       WHERE event_timestamp >= NOW() - (${hours} * INTERVAL '1 hour')
     `;
@@ -71,20 +80,6 @@ export async function GET(request: Request) {
       ORDER BY event_timestamp DESC
       LIMIT 5
     `;
-    const funnel = await db<{
-      product_views: number;
-      cart_additions: number;
-      checkout_starts: number;
-      purchases: number;
-    }[]>`
-      SELECT
-        COUNT(*) FILTER (WHERE event_type = 'product_view')::int AS product_views,
-        COUNT(*) FILTER (WHERE event_type = 'add_to_cart')::int AS cart_additions,
-        COUNT(*) FILTER (WHERE event_type = 'checkout_started')::int AS checkout_starts,
-        COUNT(*) FILTER (WHERE event_type = 'purchase')::int AS purchases
-      FROM portfolio.events
-      WHERE event_timestamp >= NOW() - (${hours} * INTERVAL '1 hour')
-    `;
     const chart = await db<{ bucket: string; revenue: number }[]>`
       SELECT
         CASE
@@ -110,7 +105,10 @@ export async function GET(request: Request) {
     const aov = summary.orders ? summary.revenue / summary.orders : 0;
     const conversion = summary.sessions ? (summary.orders / summary.sessions) * 100 : 0;
     const maxCategory = Math.max(...categories.map((item) => item.revenue), 1);
-    const latestMs = summary.latest_event_at ? Date.now() - new Date(summary.latest_event_at).getTime() : 0;
+    const latestMs = summary.latest_event_at
+      ? Date.now() - new Date(summary.latest_event_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    const writePaused = summary.database_size_bytes >= databaseWriteGuardBytes;
 
     return Response.json({
       range,
@@ -139,14 +137,26 @@ export async function GET(request: Request) {
         value: eventValue(event),
         status: event.status,
       })),
-      funnel: funnel[0],
       runtime: {
-        state: latestMs < 30_000 ? "streaming" : "waking",
-        freshnessSeconds: Math.max(0, Math.round(latestMs / 1_000)),
-        eventsPerSecond: Number((summary.events_last_minute / 60).toFixed(2)),
+        state: writePaused
+          ? "paused"
+          : latestMs < eventIntervalMs + 30_000 ? "streaming" : "waking",
+        freshnessSeconds: Number.isFinite(latestMs) ? Math.max(0, Math.round(latestMs / 1_000)) : 0,
+        eventsPerMinute: Number((summary.events_last_five_minutes / 5).toFixed(1)),
         totalEvents: summary.total_events,
         lastStartedAt: stream?.last_started_at ?? null,
         eventsThisWake: stream?.events_written ?? 0,
+        nextEventInSeconds: Number.isFinite(latestMs)
+          ? Math.max(0, Math.ceil((eventIntervalMs - latestMs) / 1_000))
+          : 0,
+        writeCadenceSeconds: Math.round(eventIntervalMs / 1_000),
+        estimatedMonthlyEvents: Math.round((30 * 24 * 60 * 60 * 1_000) / eventIntervalMs),
+        eventCap: maxEventRows,
+        retentionDays: eventRetentionDays,
+        databaseSizeBytes: Math.round(summary.database_size_bytes),
+        databaseQuotaBytes: supabaseFreeDatabaseQuotaBytes,
+        databaseWriteGuardBytes,
+        writePaused,
       },
     });
   } catch (error) {

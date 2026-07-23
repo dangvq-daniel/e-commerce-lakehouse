@@ -19,14 +19,31 @@ type LiveAnalytics = {
   snapshot: Snapshot;
   recentEvents: { time: string; type: string; id: string; value: string; status: string }[];
   runtime: {
-    state: "streaming" | "waking";
+    state: "streaming" | "waking" | "paused";
     freshnessSeconds: number;
-    eventsPerSecond: number;
+    eventsPerMinute: number;
     totalEvents: number;
     lastStartedAt: string | null;
     eventsThisWake: number;
+    nextEventInSeconds: number;
+    writeCadenceSeconds: number;
+    estimatedMonthlyEvents: number;
+    eventCap: number;
+    retentionDays: number;
+    databaseSizeBytes: number;
+    databaseQuotaBytes: number;
+    databaseWriteGuardBytes: number;
+    writePaused: boolean;
   };
 };
+
+function friendlyEventType(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function megabytes(value: number) {
+  return Math.max(0, Math.round(value / 1_000_000));
+}
 
 const fallbackSnapshots: Record<RangeKey, Snapshot> = {
   "24H": {
@@ -174,6 +191,7 @@ export default function Home() {
   const [selectedStage, setSelectedStage] = useState(0);
   const [liveData, setLiveData] = useState<LiveAnalytics | null>(null);
   const [connectionState, setConnectionState] = useState<"connecting" | "live" | "retrying">("connecting");
+  const [secondsUntilNext, setSecondsUntilNext] = useState(60);
 
   useEffect(() => {
     let active = true;
@@ -192,13 +210,30 @@ export default function Home() {
       }
     };
 
+    const refreshWhenVisible = () => {
+      if (!document.hidden) void load();
+    };
+
     void load();
-    const timer = window.setInterval(load, 5_000);
+    const timer = window.setInterval(refreshWhenVisible, 10_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [range]);
+
+  useEffect(() => {
+    if (liveData) setSecondsUntilNext(liveData.runtime.nextEventInSeconds);
+  }, [liveData]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSecondsUntilNext((current) => Math.max(0, current - 1));
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const snapshot = liveData?.snapshot ?? fallbackSnapshots[range];
   const events = liveData?.recentEvents ?? fallbackEvents;
@@ -206,6 +241,21 @@ export default function Home() {
   const labels = snapshot.labels.slice(-18);
   const chartMax = useMemo(() => Math.max(...chart, 1), [chart]);
   const stage = pipelineStages[selectedStage];
+  const runtime = liveData?.runtime;
+  const latestEvent = events[0];
+  const streamState = connectionState === "live"
+    ? runtime?.state ?? "waking"
+    : connectionState;
+  const streamLabel = streamState === "streaming"
+    ? "Streaming"
+    : streamState === "paused"
+      ? "Storage guard active"
+      : streamState === "retrying"
+        ? "Reconnecting"
+        : streamState === "waking" ? "Starting stream" : "Connecting";
+  const storagePercent = runtime
+    ? Math.min(100, Math.round((runtime.databaseSizeBytes / runtime.databaseQuotaBytes) * 100))
+    : 0;
 
   const changeRange = (next: RangeKey) => {
     setConnectionState("connecting");
@@ -301,18 +351,42 @@ export default function Home() {
               <h2 id="live-title">The data is moving now.</h2>
               <p>Render appends synthetic events while awake. Supabase provides durable PostgreSQL history across sleep, restart, and deploy cycles.</p>
             </div>
-            <div className={`connection-state ${connectionState}`} aria-live="polite">
+            <div className={`connection-state ${streamState}`} aria-live="polite">
               <i aria-hidden="true" />
-              <span>{connectionState === "live" ? "Streaming" : connectionState === "retrying" ? "Reconnecting" : "Connecting"}</span>
+              <span>{streamLabel}</span>
+            </div>
+          </div>
+
+          <div className="stream-monitor" aria-label="How the current synthetic event reaches storage">
+            <div className="stream-current">
+              <span><i aria-hidden="true" /> Latest persisted event</span>
+              <strong>{friendlyEventType(latestEvent.type)}</strong>
+              <p><code>{latestEvent.id}</code> written at {latestEvent.time}</p>
+            </div>
+            <div className="stream-route">
+              <div className="route-step"><i>1</i><strong>Generate</strong><small>Python</small></div>
+              <div className="route-track" aria-hidden="true"><i key={`generate-${runtime?.totalEvents ?? 0}`} /></div>
+              <div className="route-step"><i>2</i><strong>Validate</strong><small>Contract</small></div>
+              <div className="route-track" aria-hidden="true"><i key={`validate-${runtime?.totalEvents ?? 0}`} /></div>
+              <div className="route-step"><i>3</i><strong>Persist</strong><small>PostgreSQL</small></div>
+            </div>
+            <div className="next-write">
+              <span>NEXT BUDGET-SAFE WRITE</span>
+              <strong>{runtime?.writePaused ? "Paused" : `${secondsUntilNext}s`}</strong>
+              <small>One event per minute</small>
             </div>
           </div>
 
           <div className="runtime-bar" aria-label="Live runtime status">
-            <div><span>Freshness</span><strong>{liveData ? `${liveData.runtime.freshnessSeconds}s` : "—"}</strong></div>
-            <div><span>Throughput</span><strong>{liveData ? `${liveData.runtime.eventsPerSecond}/s` : "—"}</strong></div>
-            <div><span>Persisted events</span><strong>{liveData?.runtime.totalEvents.toLocaleString() ?? "—"}</strong></div>
-            <div><span>Generated this wake</span><strong>{liveData?.runtime.eventsThisWake.toLocaleString() ?? "—"}</strong></div>
-            <p>Synthetic data only · no customer information</p>
+            <div><span>Latest event</span><strong>{runtime ? `${runtime.freshnessSeconds}s ago` : "—"}</strong><small>Refreshes every 10 seconds</small></div>
+            <div><span>Write cadence</span><strong>{runtime ? `1 / ${runtime.writeCadenceSeconds}s` : "—"}</strong><small>{runtime?.estimatedMonthlyEvents.toLocaleString() ?? "43,200"} maximum writes / month</small></div>
+            <div><span>Stored events</span><strong>{runtime?.totalEvents.toLocaleString() ?? "—"}</strong><small>{runtime ? `${runtime.eventCap.toLocaleString()} row hard cap` : "50,000 row hard cap"}</small></div>
+            <div className="storage-budget">
+              <span>Database size</span><strong>{runtime ? `${megabytes(runtime.databaseSizeBytes)} MB` : "—"}</strong>
+              <em className="storage-meter" aria-hidden="true"><i style={{ width: `${storagePercent}%` }} /></em>
+              <small>{storagePercent}% of the 500 MB free quota</small>
+            </div>
+            <p>{runtime?.retentionDays ?? 35}-day rolling history · writes stop at 200 MB · synthetic data only</p>
           </div>
 
           <div className="analytics-toolbar">
@@ -328,10 +402,10 @@ export default function Home() {
           </div>
 
           <div className="kpi-grid">
-            <article><span>Net revenue</span><strong>{snapshot.revenue}</strong><small>Purchases less refunds</small></article>
-            <article><span>Completed orders</span><strong>{snapshot.orders}</strong><small>Purchase events</small></article>
-            <article><span>Average order</span><strong>{snapshot.aov}</strong><small>Net revenue per order</small></article>
-            <article><span>Session conversion</span><strong>{snapshot.conversion}</strong><small>Orders per active session</small></article>
+            <article><span>Net revenue</span><strong className="metric-value" key={`revenue-${snapshot.revenue}`}>{snapshot.revenue}</strong><small>Purchases less refunds</small></article>
+            <article><span>Completed orders</span><strong className="metric-value" key={`orders-${snapshot.orders}`}>{snapshot.orders}</strong><small>Purchase events</small></article>
+            <article><span>Average order</span><strong className="metric-value" key={`aov-${snapshot.aov}`}>{snapshot.aov}</strong><small>Net revenue per order</small></article>
+            <article><span>Session conversion</span><strong className="metric-value" key={`conversion-${snapshot.conversion}`}>{snapshot.conversion}</strong><small>Orders per active session</small></article>
           </div>
 
           {dataView === "performance" ? (
@@ -343,8 +417,8 @@ export default function Home() {
                 </div>
                 <div className="bar-chart" aria-label={`Revenue values for ${range}`}>
                   {chart.map((value, index) => (
-                    <div className="bar-column" key={`${range}-${index}`}>
-                      <i style={{ height: `${Math.max(4, Math.round((value / chartMax) * 100))}%` }} />
+                    <div className="bar-column" key={`${range}-${index}-${value}`}>
+                      <i style={{ height: `${Math.max(4, Math.round((value / chartMax) * 100))}%`, animationDelay: `${index * 30}ms` }} />
                       <span>{labels[index] && (index === 0 || index === chart.length - 1 || index % 3 === 0) ? labels[index] : ""}</span>
                     </div>
                   ))}
@@ -367,15 +441,15 @@ export default function Home() {
             <article className="events-card">
               <div className="card-heading">
                 <div><span>RECENT ACTIVITY</span><h3>Latest persisted events</h3></div>
-                <small>Refreshes every five seconds</small>
+                <small>Refreshes every ten seconds</small>
               </div>
               <div className="event-table" role="table" aria-label="Latest synthetic events">
                 <div className="event-row event-header" role="row">
                   <span role="columnheader">Time</span><span role="columnheader">Event</span><span role="columnheader">ID</span><span role="columnheader">Value</span><span role="columnheader">Status</span>
                 </div>
-                {events.map((event) => (
-                  <div className="event-row" role="row" key={`${event.time}-${event.id}`}>
-                    <span role="cell">{event.time}</span><strong role="cell">{event.type}</strong><code role="cell">{event.id}</code><b role="cell">{event.value}</b><i role="cell">{event.status}</i>
+                {events.map((event, index) => (
+                  <div className={`event-row ${index === 0 ? "event-row-new" : ""}`} role="row" key={`${event.time}-${event.id}`}>
+                    <span role="cell">{event.time}</span><strong role="cell">{friendlyEventType(event.type)}</strong><code role="cell">{event.id}</code><b role="cell">{event.value}</b><i role="cell">{event.status}</i>
                   </div>
                 ))}
               </div>
@@ -402,7 +476,7 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="stage-detail" aria-live="polite">
+        <div className="stage-detail" aria-live="polite" key={stage.number}>
           <div className="stage-index">{stage.number}</div>
           <div><span>{stage.title} · {stage.subtitle}</span><h3>{stage.purpose}</h3></div>
           <div><span>OUTPUT</span><p>{stage.output}</p></div>
@@ -433,7 +507,7 @@ export default function Home() {
               <span className="mode-label"><i /> PUBLIC DEMO</span>
               <h3>Built for reliable access</h3>
               <p>Render runs the interface and resumable producer. Supabase keeps event history outside Render&apos;s ephemeral filesystem.</p>
-              <ul><li>Starts streaming whenever Render wakes</li><li>Database lease prevents duplicate writers</li><li>Existing events survive restart and deploy</li></ul>
+              <ul><li>One event per minute while Render is awake</li><li>50,000-row cap with 35-day rolling retention</li><li>Writes stop automatically at 200 MB</li></ul>
             </article>
           </div>
         </div>
@@ -460,7 +534,7 @@ export default function Home() {
           </details>
           <details>
             <summary><span>04</span><strong>Cost-aware deployment</strong><i>+</i></summary>
-            <p>The public service accepts Render cold starts and uses an external PostgreSQL lease. That preserves the behavior recruiters need to inspect without pretending the full platform fits a free tier.</p>
+            <p>The public service accepts Render cold starts and uses an external PostgreSQL lease. A one-minute cadence, bounded retention, and a 200 MB write guard preserve the behavior recruiters need without risking the 500 MB free database quota.</p>
           </details>
         </div>
       </section>
