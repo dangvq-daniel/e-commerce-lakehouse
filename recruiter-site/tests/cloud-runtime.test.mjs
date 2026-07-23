@@ -24,6 +24,10 @@ test("cloud runtime is resumable and backed by PostgreSQL", async () => {
   assert.match(page, /\/api\/analytics/);
   assert.match(page, /durable PostgreSQL history/i);
   assert.match(page, /NEXT BUDGET-SAFE WRITE/);
+  assert.match(page, /Selectable e-commerce lakehouse system graph/);
+  assert.match(page, /from: "airflow", to: "databricks", kind: "control"/);
+  assert.match(page, /from: "airflow", to: "dbt", kind: "control"/);
+  assert.match(page, /IMMEDIATE CONNECTIONS/);
 });
 
 test("OpenAI hosting is not part of the deployment", async () => {

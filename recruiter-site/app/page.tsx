@@ -101,70 +101,120 @@ const fallbackEvents = [
   { time: "14:42:04", type: "add_to_cart", id: "224ecf98", value: "1 unit", status: "processed" },
 ];
 
-const pipelineStages = [
+const systemNodes = [
   {
+    id: "airflow",
+    number: "CTRL",
+    title: "Airflow",
+    subtitle: "Control Plane",
+    group: "Orchestrate",
+    kind: "control",
+    purpose: "Coordinates work without becoming part of the business-data path.",
+    output: "Independent schedules, retries, dependency checks, and operational visibility for Databricks and dbt.",
+  },
+  {
+    id: "simulator",
     number: "01",
     title: "Python",
     subtitle: "Event Simulator",
+    group: "Capture",
+    kind: "data",
     purpose: "Creates realistic customer, order, refund, inventory, and product activity.",
     output: "Typed synthetic events with related customer, session, product, and order IDs.",
   },
   {
+    id: "kafka",
     number: "02",
     title: "Kafka",
     subtitle: "Topics",
+    group: "Capture",
+    kind: "data",
     purpose: "Decouples producers from consumers and keeps events replayable.",
     output: "Five partitioned streams with durable offsets and ordered records per partition.",
   },
   {
+    id: "databricks",
     number: "03",
     title: "Databricks",
     subtitle: "PySpark Streaming",
+    group: "Process",
+    kind: "data",
     purpose: "Processes events continuously with checkpoints, watermarks, and failure recovery.",
     output: "A governed path into Bronze and validated Silver tables.",
   },
   {
+    id: "bronze",
     number: "04",
     title: "Delta",
     subtitle: "Bronze",
+    group: "Lakehouse",
+    kind: "data",
     purpose: "Preserves the original event envelope before business transformations.",
     output: "Immutable, replayable raw history with ingestion and Kafka metadata.",
   },
   {
+    id: "silver",
     number: "05",
     title: "Delta",
     subtitle: "Silver",
+    group: "Lakehouse",
+    kind: "data",
     purpose: "Normalizes schemas, deduplicates records, and separates invalid data.",
     output: "Trusted domain tables ready for analytics engineering.",
   },
   {
+    id: "dbt",
     number: "06",
     title: "dbt",
     subtitle: "Staging + Intermediate",
+    group: "Model",
+    kind: "data",
     purpose: "Turns Silver data into documented, tested business definitions.",
     output: "Reusable staging views, metrics, lineage, and data-quality tests.",
   },
   {
+    id: "gold",
     number: "07",
     title: "Delta",
     subtitle: "Gold",
+    group: "Model",
+    kind: "data",
     purpose: "Publishes business-ready facts and dimensions at explicit grains.",
     output: "Eight curated models for sales, orders, sessions, inventory, customers, and products.",
   },
   {
+    id: "postgres",
     number: "08",
     title: "PostgreSQL",
     subtitle: "Warehouse",
+    group: "Serve",
+    kind: "data",
     purpose: "Provides a familiar, low-latency serving layer for business intelligence.",
     output: "A query-ready copy of Gold isolated from streaming workloads.",
   },
   {
+    id: "metabase",
     number: "09",
     title: "Metabase",
     subtitle: "Dashboard",
+    group: "Serve",
+    kind: "data",
     purpose: "Makes governed metrics accessible to executives, product teams, and operations.",
     output: "Seventeen saved questions across four decision-focused dashboards.",
   },
+];
+
+const systemEdges = [
+  { from: "simulator", to: "kafka", kind: "data", path: "M 139 248 L 200 248" },
+  { from: "kafka", to: "databricks", kind: "data", path: "M 319 248 L 380 248" },
+  { from: "databricks", to: "bronze", kind: "data", path: "M 440 306 L 440 335" },
+  { from: "bronze", to: "silver", kind: "data", path: "M 499 393 L 560 393" },
+  { from: "silver", to: "dbt", kind: "data", path: "M 679 393 L 720 393" },
+  { from: "dbt", to: "gold", kind: "data", path: "M 839 393 L 860 393" },
+  { from: "gold", to: "postgres", kind: "data", path: "M 920 451 C 920 468 780 466 740 480" },
+  { from: "postgres", to: "metabase", kind: "data", path: "M 799 538 L 860 538" },
+  { from: "airflow", to: "databricks", kind: "control", path: "M 640 150 C 640 178 440 158 440 190" },
+  { from: "airflow", to: "dbt", kind: "control", path: "M 640 150 C 640 240 780 245 780 335" },
 ];
 
 const outcomes = [
@@ -188,7 +238,7 @@ const outcomes = [
 export default function Home() {
   const [range, setRange] = useState<RangeKey>("24H");
   const [dataView, setDataView] = useState<DataView>("performance");
-  const [selectedStage, setSelectedStage] = useState(0);
+  const [selectedNodeId, setSelectedNodeId] = useState("simulator");
   const [liveData, setLiveData] = useState<LiveAnalytics | null>(null);
   const [connectionState, setConnectionState] = useState<"connecting" | "live" | "retrying">("connecting");
   const [secondsUntilNext, setSecondsUntilNext] = useState(60);
@@ -202,6 +252,7 @@ export default function Home() {
         const next = (await response.json()) as LiveAnalytics;
         if (active) {
           setLiveData(next);
+          setSecondsUntilNext(next.runtime.nextEventInSeconds);
           setConnectionState("live");
         }
       } catch (error) {
@@ -225,10 +276,6 @@ export default function Home() {
   }, [range]);
 
   useEffect(() => {
-    if (liveData) setSecondsUntilNext(liveData.runtime.nextEventInSeconds);
-  }, [liveData]);
-
-  useEffect(() => {
     const timer = window.setInterval(() => {
       setSecondsUntilNext((current) => Math.max(0, current - 1));
     }, 1_000);
@@ -240,7 +287,15 @@ export default function Home() {
   const chart = snapshot.chart.slice(-18);
   const labels = snapshot.labels.slice(-18);
   const chartMax = useMemo(() => Math.max(...chart, 1), [chart]);
-  const stage = pipelineStages[selectedStage];
+  const selectedNode = systemNodes.find((node) => node.id === selectedNodeId) ?? systemNodes[1];
+  const incomingNodes = systemEdges
+    .filter((edge) => edge.to === selectedNode.id)
+    .map((edge) => systemNodes.find((node) => node.id === edge.from))
+    .filter((node): node is (typeof systemNodes)[number] => Boolean(node));
+  const outgoingNodes = systemEdges
+    .filter((edge) => edge.from === selectedNode.id)
+    .map((edge) => systemNodes.find((node) => node.id === edge.to))
+    .filter((node): node is (typeof systemNodes)[number] => Boolean(node));
   const runtime = liveData?.runtime;
   const latestEvent = events[0];
   const streamState = connectionState === "live"
@@ -461,31 +516,108 @@ export default function Home() {
       <section className="architecture section-shell" id="architecture" aria-labelledby="architecture-title">
         <div className="section-intro architecture-intro">
           <p className="eyebrow">SYSTEM DESIGN</p>
-          <h2 id="architecture-title">Explore the production data path.</h2>
-          <p>Select a stage to understand what it owns. The main path remains linear; Airflow controls execution from outside the business-data flow.</p>
+          <h2 id="architecture-title">See how the platform actually works.</h2>
+          <p>The solid route carries business data. The dashed branch is Airflow&apos;s control plane, independently coordinating Databricks and dbt.</p>
         </div>
 
-        <div className="pipeline-scroller" aria-label="Canonical platform architecture">
-          {pipelineStages.map((item, index) => (
-            <div className="pipeline-node-wrap" key={item.number}>
-              <button type="button" className="pipeline-node" aria-pressed={selectedStage === index} onClick={() => setSelectedStage(index)}>
-                <span>{item.number}</span><strong>{item.title}</strong><small>{item.subtitle}</small>
-              </button>
-              {index < pipelineStages.length - 1 && <i className="flow-arrow" aria-hidden="true">→</i>}
+        <div className="architecture-map">
+          <div className="map-toolbar">
+            <div>
+              <strong>Production architecture</strong>
+              <span>Select a node to inspect its role and immediate connections.</span>
             </div>
-          ))}
+            <div className="map-legend" aria-label="Connection legend">
+              <span><i className="legend-data" aria-hidden="true" /> Business data</span>
+              <span><i className="legend-control" aria-hidden="true" /> Control signal</span>
+            </div>
+          </div>
+
+          <div className="system-map-canvas" aria-label="Selectable e-commerce lakehouse system graph">
+            <div className="map-lane map-lane-control" aria-hidden="true">
+              <span>CONTROL PLANE</span><small>Schedules, retries, and monitors</small>
+            </div>
+            <div className="map-lane map-lane-data" aria-hidden="true">
+              <span>DATA PLANE</span><small>Events move through capture, refinement, modeling, and serving</small>
+            </div>
+
+            <svg className="map-connections" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <marker id="data-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                  <path d="M 0 0 L 8 4 L 0 8 z" />
+                </marker>
+                <marker id="control-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                  <path d="M 0 0 L 8 4 L 0 8 z" />
+                </marker>
+              </defs>
+              {systemEdges.map((edge) => (
+                <path
+                  key={`${edge.from}-${edge.to}`}
+                  d={edge.path}
+                  className={`${edge.kind}-edge ${edge.from === selectedNode.id || edge.to === selectedNode.id ? "edge-active" : ""}`}
+                  markerEnd={`url(#${edge.kind}-arrow)`}
+                />
+              ))}
+            </svg>
+
+            <div className="system-map-nodes">
+              {systemNodes.map((node) => {
+                const isRelated = systemEdges.some((edge) =>
+                  (edge.from === selectedNode.id && edge.to === node.id)
+                  || (edge.to === selectedNode.id && edge.from === node.id));
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    className={`map-node node-${node.id} ${isRelated ? "is-related" : ""}`}
+                    aria-pressed={selectedNode.id === node.id}
+                    aria-controls="architecture-inspector"
+                    onClick={() => setSelectedNodeId(node.id)}
+                  >
+                    <span>{node.number} · {node.group}</span>
+                    <strong>{node.title}</strong>
+                    <small>{node.subtitle}</small>
+                  </button>
+                );
+              })}
+              <div className="mobile-control-branch" aria-hidden="true">
+                <span>Controls two independent jobs</span>
+                <strong>Databricks</strong>
+                <i />
+                <strong>dbt</strong>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="stage-detail" aria-live="polite" key={stage.number}>
-          <div className="stage-index">{stage.number}</div>
-          <div><span>{stage.title} · {stage.subtitle}</span><h3>{stage.purpose}</h3></div>
-          <div><span>OUTPUT</span><p>{stage.output}</p></div>
-        </div>
-
-        <div className="airflow-row">
-          <div><span>CONTROL PLANE</span><strong>Airflow</strong></div>
-          <p>Schedules, retries, and monitors Databricks and dbt. It coordinates the pipeline without becoming part of the data path.</p>
-          <div className="airflow-targets"><span>Databricks</span><span>dbt</span></div>
+        <div className="node-inspector" id="architecture-inspector" aria-live="polite" key={selectedNode.id}>
+          <div className="inspector-identity">
+            <span>{selectedNode.kind === "control" ? "CONTROL PLANE" : `${selectedNode.number} · ${selectedNode.group.toUpperCase()}`}</span>
+            <h3>{selectedNode.title}</h3>
+            <p>{selectedNode.subtitle}</p>
+          </div>
+          <div className="inspector-purpose">
+            <span>WHY IT EXISTS</span>
+            <strong>{selectedNode.purpose}</strong>
+          </div>
+          <div className="inspector-output">
+            <span>WHAT IT PRODUCES</span>
+            <p>{selectedNode.output}</p>
+          </div>
+          <div className="inspector-links">
+            <span>IMMEDIATE CONNECTIONS</span>
+            <div>
+              {incomingNodes.map((node) => (
+                <button key={`from-${node.id}`} type="button" onClick={() => setSelectedNodeId(node.id)}>
+                  <i aria-hidden="true">←</i> {node.title}
+                </button>
+              ))}
+              {outgoingNodes.map((node) => (
+                <button key={`to-${node.id}`} type="button" onClick={() => setSelectedNodeId(node.id)}>
+                  {node.title} <i aria-hidden="true">→</i>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
