@@ -9,9 +9,9 @@ are environment-specific and should be delivered through IaC.
 The public portfolio surface uses Render plus Supabase without redefining the canonical
 production architecture. A single free Render web service runs the dashboard and resumes
 a low-rate synthetic producer on every process wake. The producer claims a PostgreSQL
-lease, creates the schema idempotently, seeds only an empty database, and appends events
-while the web service remains active. Supabase PostgreSQL preserves those events across
-Render spin-downs and deploys.
+lease, creates the schema idempotently, and tops up a small historical baseline without
+truncating existing data. It appends events while the web service remains active.
+Supabase PostgreSQL preserves those events across Render spin-downs and deploys.
 
 This deployment is a live compatibility demonstration, not a claim that the full Kafka,
 Databricks, Delta, Airflow, dbt, and Metabase stack can run continuously for $5/month.

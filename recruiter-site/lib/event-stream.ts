@@ -112,16 +112,17 @@ async function insertEvents(events: DemoEvent[]) {
   `;
 }
 
-async function seedIfEmpty() {
+async function seedHistoryIfNeeded() {
   const db = requireDatabase();
   const [{ count }] = await db<{ count: number }[]>`
     SELECT COUNT(*)::int AS count FROM portfolio.events
   `;
-  if (count > 0) return;
-
   const seedCount = Math.min(Number(process.env.SEED_EVENT_COUNT ?? 1_500), 5_000);
+  if (count >= seedCount) return;
+
+  const missingEvents = seedCount - count;
   const now = Date.now();
-  const events = Array.from({ length: seedCount }, () => {
+  const events = Array.from({ length: missingEvents }, () => {
     const age = Math.random() * 30 * 24 * 60 * 60 * 1_000;
     return makeEvent(new Date(now - age));
   }).sort((a, b) => a.event_timestamp.getTime() - b.event_timestamp.getTime());
@@ -179,7 +180,7 @@ export async function startEventStream() {
 
   try {
     await initializeDatabase();
-    await seedIfEmpty();
+    await seedHistoryIfNeeded();
     await tick();
   } catch (error) {
     started = false;

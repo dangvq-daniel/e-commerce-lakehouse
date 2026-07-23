@@ -3,24 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 
 type RangeKey = "24H" | "7D" | "30D";
+type DataView = "performance" | "events";
+
+type Snapshot = {
+  revenue: string;
+  orders: string;
+  aov: string;
+  conversion: string;
+  chart: number[];
+  labels: string[];
+  categories: { name: string; value: string; share: number }[];
+};
 
 type LiveAnalytics = {
-  snapshot: {
-    revenue: string;
-    orders: string;
-    aov: string;
-    conversion: string;
-    chart: number[];
-    labels: string[];
-    categories: { name: string; value: string; share: number }[];
-  };
+  snapshot: Snapshot;
   recentEvents: { time: string; type: string; id: string; value: string; status: string }[];
-  funnel: {
-    product_views: number;
-    cart_additions: number;
-    checkout_starts: number;
-    purchases: number;
-  };
   runtime: {
     state: "streaming" | "waking";
     freshnessSeconds: number;
@@ -31,123 +28,152 @@ type LiveAnalytics = {
   };
 };
 
-const snapshots: Record<
-  RangeKey,
-  {
-    revenue: string;
-    revenueTrend: string;
-    orders: string;
-    orderTrend: string;
-    aov: string;
-    aovTrend: string;
-    conversion: string;
-    conversionTrend: string;
-    chart: number[];
-    labels: string[];
-    categories: { name: string; value: string; share: number }[];
-  }
-> = {
+const fallbackSnapshots: Record<RangeKey, Snapshot> = {
   "24H": {
-    revenue: "$86,420",
-    revenueTrend: "+12.4%",
-    orders: "1,284",
-    orderTrend: "+8.7%",
-    aov: "$67.31",
-    aovTrend: "+3.1%",
-    conversion: "4.8%",
-    conversionTrend: "+0.6 pp",
-    chart: [31, 26, 22, 29, 38, 52, 47, 59, 67, 61, 72, 78, 69, 82, 88, 80, 93, 86],
-    labels: ["12a", "4a", "8a", "12p", "4p", "8p"],
+    revenue: "$6,368",
+    orders: "96",
+    aov: "$66",
+    conversion: "15.6%",
+    chart: [22, 31, 27, 45, 38, 55, 49, 67, 61, 74, 69, 82],
+    labels: ["12a", "2a", "4a", "6a", "8a", "10a", "12p", "2p", "4p", "6p", "8p", "Now"],
     categories: [
-      { name: "Electronics", value: "$28.6k", share: 100 },
-      { name: "Home & living", value: "$19.8k", share: 69 },
-      { name: "Apparel", value: "$15.7k", share: 55 },
-      { name: "Sports", value: "$12.4k", share: 43 },
-      { name: "Beauty", value: "$9.9k", share: 35 },
+      { name: "Electronics", value: "$4.5k", share: 100 },
+      { name: "Home & living", value: "$4.2k", share: 92 },
+      { name: "Sports", value: "$3.7k", share: 81 },
+      { name: "Beauty", value: "$3.1k", share: 68 },
+      { name: "Apparel", value: "$2.3k", share: 51 },
     ],
   },
   "7D": {
-    revenue: "$548,230",
-    revenueTrend: "+18.9%",
-    orders: "7,931",
-    orderTrend: "+14.2%",
-    aov: "$69.12",
-    aovTrend: "+4.8%",
-    conversion: "5.1%",
-    conversionTrend: "+0.9 pp",
-    chart: [43, 48, 46, 57, 61, 58, 65, 69, 66, 73, 78, 74, 82, 86, 83, 89, 91, 96],
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    revenue: "$42.8k",
+    orders: "641",
+    aov: "$67",
+    conversion: "15.2%",
+    chart: [41, 56, 49, 65, 72, 68, 84],
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     categories: [
-      { name: "Electronics", value: "$174k", share: 100 },
-      { name: "Home & living", value: "$126k", share: 72 },
-      { name: "Apparel", value: "$102k", share: 59 },
-      { name: "Sports", value: "$81k", share: 47 },
-      { name: "Beauty", value: "$65k", share: 37 },
+      { name: "Electronics", value: "$14.1k", share: 100 },
+      { name: "Home & living", value: "$10.6k", share: 75 },
+      { name: "Sports", value: "$7.4k", share: 53 },
+      { name: "Beauty", value: "$6.2k", share: 44 },
+      { name: "Apparel", value: "$4.5k", share: 32 },
     ],
   },
   "30D": {
-    revenue: "$2.34M",
-    revenueTrend: "+24.6%",
-    orders: "33,982",
-    orderTrend: "+19.1%",
-    aov: "$68.86",
-    aovTrend: "+2.7%",
-    conversion: "4.9%",
-    conversionTrend: "+0.7 pp",
-    chart: [35, 39, 45, 42, 49, 54, 51, 59, 63, 60, 68, 71, 76, 73, 82, 86, 91, 95],
-    labels: ["W1", "W2", "W3", "W4", "Today", ""],
+    revenue: "$184k",
+    orders: "2,731",
+    aov: "$67",
+    conversion: "15.4%",
+    chart: [38, 44, 47, 51, 49, 56, 61, 58, 64, 69, 73, 78],
+    labels: ["W1", "", "", "W2", "", "", "W3", "", "", "W4", "", "Now"],
     categories: [
-      { name: "Electronics", value: "$742k", share: 100 },
-      { name: "Home & living", value: "$531k", share: 72 },
-      { name: "Apparel", value: "$438k", share: 59 },
-      { name: "Sports", value: "$354k", share: 48 },
-      { name: "Beauty", value: "$275k", share: 37 },
+      { name: "Electronics", value: "$58k", share: 100 },
+      { name: "Home & living", value: "$45k", share: 78 },
+      { name: "Sports", value: "$34k", share: 59 },
+      { name: "Beauty", value: "$27k", share: 47 },
+      { name: "Apparel", value: "$20k", share: 34 },
     ],
   },
 };
 
-const pipeline = [
-  ["01", "Python", "Event Simulator"],
-  ["02", "Kafka", "Topics"],
-  ["03", "Databricks", "PySpark Streaming"],
-  ["04", "Delta", "Bronze"],
-  ["05", "Delta", "Silver"],
-  ["06", "dbt", "Staging + Intermediate"],
-  ["07", "Delta", "Gold"],
-  ["08", "PostgreSQL", "Warehouse"],
-  ["09", "Metabase", "Dashboard"],
+const fallbackEvents = [
+  { time: "14:42:18", type: "purchase", id: "84f1c2a7", value: "$184", status: "processed" },
+  { time: "14:42:16", type: "inventory_update", id: "fb091da4", value: "2 units", status: "processed" },
+  { time: "14:42:13", type: "refund", id: "2cc89fe1", value: "$43", status: "validated" },
+  { time: "14:42:09", type: "product_view", id: "a170cc26", value: "1 unit", status: "processed" },
+  { time: "14:42:04", type: "add_to_cart", id: "224ecf98", value: "1 unit", status: "processed" },
 ];
 
-const events = [
-  ["14:42:18", "purchase", "ord_84f1", "$184.00", "completed"],
-  ["14:42:16", "inventory_update", "prd_091", "−2 units", "processed"],
-  ["14:42:13", "refund", "ord_2cc8", "$42.50", "validated"],
-  ["14:42:09", "purchase", "ord_a170", "$96.20", "completed"],
-  ["14:42:04", "product_review", "prd_224", "5 stars", "processed"],
+const pipelineStages = [
+  {
+    number: "01",
+    title: "Python",
+    subtitle: "Event Simulator",
+    purpose: "Creates realistic customer, order, refund, inventory, and product activity.",
+    output: "Typed synthetic events with related customer, session, product, and order IDs.",
+  },
+  {
+    number: "02",
+    title: "Kafka",
+    subtitle: "Topics",
+    purpose: "Decouples producers from consumers and keeps events replayable.",
+    output: "Five partitioned streams with durable offsets and ordered records per partition.",
+  },
+  {
+    number: "03",
+    title: "Databricks",
+    subtitle: "PySpark Streaming",
+    purpose: "Processes events continuously with checkpoints, watermarks, and failure recovery.",
+    output: "A governed path into Bronze and validated Silver tables.",
+  },
+  {
+    number: "04",
+    title: "Delta",
+    subtitle: "Bronze",
+    purpose: "Preserves the original event envelope before business transformations.",
+    output: "Immutable, replayable raw history with ingestion and Kafka metadata.",
+  },
+  {
+    number: "05",
+    title: "Delta",
+    subtitle: "Silver",
+    purpose: "Normalizes schemas, deduplicates records, and separates invalid data.",
+    output: "Trusted domain tables ready for analytics engineering.",
+  },
+  {
+    number: "06",
+    title: "dbt",
+    subtitle: "Staging + Intermediate",
+    purpose: "Turns Silver data into documented, tested business definitions.",
+    output: "Reusable staging views, metrics, lineage, and data-quality tests.",
+  },
+  {
+    number: "07",
+    title: "Delta",
+    subtitle: "Gold",
+    purpose: "Publishes business-ready facts and dimensions at explicit grains.",
+    output: "Eight curated models for sales, orders, sessions, inventory, customers, and products.",
+  },
+  {
+    number: "08",
+    title: "PostgreSQL",
+    subtitle: "Warehouse",
+    purpose: "Provides a familiar, low-latency serving layer for business intelligence.",
+    output: "A query-ready copy of Gold isolated from streaming workloads.",
+  },
+  {
+    number: "09",
+    title: "Metabase",
+    subtitle: "Dashboard",
+    purpose: "Makes governed metrics accessible to executives, product teams, and operations.",
+    output: "Seventeen saved questions across four decision-focused dashboards.",
+  },
+];
+
+const outcomes = [
+  {
+    number: "01",
+    title: "Capture every decision signal",
+    copy: "Clicks, carts, orders, refunds, reviews, and inventory changes share one versioned event contract.",
+  },
+  {
+    number: "02",
+    title: "Make the stream trustworthy",
+    copy: "Raw history remains replayable while validation, deduplication, and quarantine protect downstream metrics.",
+  },
+  {
+    number: "03",
+    title: "Turn events into action",
+    copy: "Tested facts and dimensions answer revenue, customer, product, and operational questions consistently.",
+  },
 ];
 
 export default function Home() {
   const [range, setRange] = useState<RangeKey>("24H");
+  const [dataView, setDataView] = useState<DataView>("performance");
+  const [selectedStage, setSelectedStage] = useState(0);
   const [liveData, setLiveData] = useState<LiveAnalytics | null>(null);
-  const [connectionState, setConnectionState] = useState<"connecting" | "live" | "retrying">(
-    "connecting",
-  );
-  const snapshot = liveData ? { ...snapshots[range], ...liveData.snapshot } : snapshots[range];
-  const chartMax = useMemo(() => Math.max(...snapshot.chart), [snapshot.chart]);
-  const displayEvents = liveData?.recentEvents ?? events.map(([time, type, id, value, status]) => ({
-    time,
-    type,
-    id,
-    value,
-    status,
-  }));
-  const funnel = liveData?.funnel ?? {
-    product_views: 156_420,
-    cart_additions: 38_906,
-    checkout_starts: 12_744,
-    purchases: 7_509,
-  };
-  const funnelMax = Math.max(funnel.product_views, 1);
+  const [connectionState, setConnectionState] = useState<"connecting" | "live" | "retrying">("connecting");
 
   useEffect(() => {
     let active = true;
@@ -165,6 +191,7 @@ export default function Home() {
         if (active) setConnectionState("retrying");
       }
     };
+
     void load();
     const timer = window.setInterval(load, 5_000);
     return () => {
@@ -173,306 +200,283 @@ export default function Home() {
     };
   }, [range]);
 
+  const snapshot = liveData?.snapshot ?? fallbackSnapshots[range];
+  const events = liveData?.recentEvents ?? fallbackEvents;
+  const chart = snapshot.chart.slice(-18);
+  const labels = snapshot.labels.slice(-18);
+  const chartMax = useMemo(() => Math.max(...chart, 1), [chart]);
+  const stage = pipelineStages[selectedStage];
+
+  const changeRange = (next: RangeKey) => {
+    setConnectionState("connecting");
+    setRange(next);
+  };
+
   return (
-    <main>
+    <main id="top">
       <header className="site-header">
         <a className="brand" href="#top" aria-label="E-commerce Lakehouse home">
           <span className="brand-mark" aria-hidden="true">EL</span>
-          <span>
+          <span className="brand-copy">
             <strong>E-commerce Lakehouse</strong>
-            <small>Data engineering portfolio</small>
+            <small>Streaming analytics platform</small>
           </span>
         </a>
         <nav aria-label="Primary navigation">
-          <a href="#analytics">Analytics</a>
+          <a href="#product">Product</a>
+          <a href="#live">Live data</a>
           <a href="#architecture">Architecture</a>
-          <a href="#quality">Data quality</a>
+          <a href="#reliability">Reliability</a>
         </nav>
-        <a
-          className="header-link"
-          href="https://github.com/dangvq-daniel/e-commerce-lakehouse"
-          target="_blank"
-          rel="noreferrer"
-        >
+        <a className="source-link" href="https://github.com/dangvq-daniel/e-commerce-lakehouse" target="_blank" rel="noreferrer">
           View source <span aria-hidden="true">↗</span>
         </a>
       </header>
 
-      <section className="hero" id="top">
-        <div className="hero-grid" aria-hidden="true" />
+      <section className="hero section-shell" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <div className="status-pill">
-            <span /> {connectionState === "live" ? "Cloud stream connected" : "Waking cloud stream"}
-          </div>
+          <div className="live-badge"><i aria-hidden="true" /> Public demo running on Render</div>
           <p className="eyebrow">REAL-TIME E-COMMERCE ANALYTICS</p>
-          <h1>From clickstream<br />to decision, <em>in seconds.</em></h1>
+          <h1 id="hero-title">From raw customer events to decisions teams can trust.</h1>
           <p className="hero-lede">
-            A production-shaped streaming lakehouse that turns synthetic commerce events into
-            trusted revenue, customer, product, and inventory intelligence.
+            A production-shaped data platform that captures commerce activity, improves it through a governed lakehouse,
+            and serves clear revenue, customer, product, and inventory insights.
           </p>
           <div className="hero-actions">
-            <a className="button primary" href="#analytics">Explore the analytics</a>
-            <a
-              className="button secondary"
-              href="https://github.com/dangvq-daniel/e-commerce-lakehouse"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Read the implementation <span aria-hidden="true">↗</span>
-            </a>
+            <a className="button button-primary" href="#live">See live data</a>
+            <a className="button button-secondary" href="#architecture">Understand the system</a>
           </div>
+          <dl className="proof-strip" aria-label="Project scope">
+            <div><dt>10</dt><dd>Event types</dd></div>
+            <div><dt>9</dt><dd>Pipeline stages</dd></div>
+            <div><dt>8</dt><dd>Gold models</dd></div>
+            <div><dt>$0</dt><dd>Demo runtime</dd></div>
+          </dl>
         </div>
-        <div className="hero-console" aria-label="Platform status summary">
-          <div className="console-top">
-            <span>RENDER / LIVE RUNTIME</span>
-            <span className="console-state">● {connectionState.toUpperCase()}</span>
+
+        <aside className="journey-card" aria-label="How a customer action becomes a business decision">
+          <div className="journey-head">
+            <span>ONE EVENT, END TO END</span>
+            <b>Purchase completed</b>
           </div>
-          <div className="console-metric">
-            <span>EVENT THROUGHPUT</span>
-            <strong>{liveData?.runtime.eventsPerSecond ?? "—"} <small>events/sec</small></strong>
-            <div className="micro-bars" aria-hidden="true">
-              {[34, 48, 39, 64, 52, 71, 59, 82, 68, 88, 74, 93].map((height, index) => (
-                <i key={index} style={{ height: `${height}%` }} />
-              ))}
-            </div>
-          </div>
-          <div className="console-grid">
-            <div><span>Freshness</span><strong>{liveData ? `${liveData.runtime.freshnessSeconds} sec` : "—"}</strong></div>
-            <div><span>Persisted events</span><strong>{liveData?.runtime.totalEvents.toLocaleString() ?? "—"}</strong></div>
-            <div><span>This wake</span><strong>{liveData?.runtime.eventsThisWake.toLocaleString() ?? "—"}</strong></div>
-            <div><span>Runtime state</span><strong className="good">{liveData?.runtime.state ?? "starting"}</strong></div>
-          </div>
-          <p className="console-foot">Synthetic stream · durable PostgreSQL history · no customer data</p>
+          <ol>
+            <li><span>01</span><div><strong>Capture</strong><p>Python emits a typed purchase event to Kafka.</p></div></li>
+            <li><span>02</span><div><strong>Refine</strong><p>PySpark preserves raw data, then validates and deduplicates it.</p></div></li>
+            <li><span>03</span><div><strong>Model</strong><p>dbt applies tested business logic and updates Gold facts.</p></div></li>
+            <li><span>04</span><div><strong>Decide</strong><p>PostgreSQL and Metabase expose the result to business users.</p></div></li>
+          </ol>
+          <p className="journey-note">Airflow coordinates the work without carrying business data.</p>
+        </aside>
+      </section>
+
+      <section className="product section-shell" id="product" aria-labelledby="product-title">
+        <div className="section-intro">
+          <p className="eyebrow">THE PRODUCT</p>
+          <h2 id="product-title">One dependable path from activity to insight.</h2>
+          <p>The platform solves three connected problems so teams do not have to reconcile disconnected pipelines and metrics.</p>
+        </div>
+        <div className="outcome-grid">
+          {outcomes.map((outcome) => (
+            <article key={outcome.number}>
+              <span>{outcome.number}</span>
+              <h3>{outcome.title}</h3>
+              <p>{outcome.copy}</p>
+            </article>
+          ))}
+        </div>
+        <div className="audience-row">
+          <strong>Built for shared understanding</strong>
+          <span>Executives track revenue</span>
+          <span>Product teams study conversion</span>
+          <span>Operations monitor inventory</span>
+          <span>Data teams own quality and replay</span>
         </div>
       </section>
 
-      <section className="analytics section-shell" id="analytics">
-        <div className="section-heading split-heading">
-          <div>
-            <p className="eyebrow">BUSINESS INTELLIGENCE</p>
-            <h2>Commerce pulse</h2>
-            <p>Live metrics aggregated from durable PostgreSQL history; canonical Gold models remain in the repository.</p>
-          </div>
-          <div className="range-control" aria-label="Select reporting period">
-            {(Object.keys(snapshots) as RangeKey[]).map((item) => (
-              <button
-                key={item}
-                type="button"
-                aria-pressed={range === item}
-                onClick={() => setRange(item)}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="kpi-grid">
-          <article className="kpi-card">
-            <div className="kpi-label"><span>NET REVENUE</span><i>01</i></div>
-            <strong>{snapshot.revenue}</strong>
-            <p><b>LIVE</b> persisted PostgreSQL result</p>
-          </article>
-          <article className="kpi-card">
-            <div className="kpi-label"><span>ORDERS</span><i>02</i></div>
-            <strong>{snapshot.orders}</strong>
-            <p><b>LIVE</b> completed purchase events</p>
-          </article>
-          <article className="kpi-card">
-            <div className="kpi-label"><span>AVERAGE ORDER</span><i>03</i></div>
-            <strong>{snapshot.aov}</strong>
-            <p><b>LIVE</b> net revenue per order</p>
-          </article>
-          <article className="kpi-card">
-            <div className="kpi-label"><span>CONVERSION</span><i>04</i></div>
-            <strong>{snapshot.conversion}</strong>
-            <p><b>LIVE</b> orders per active session</p>
-          </article>
-        </div>
-
-        <div className="analytics-grid">
-          <article className="panel revenue-panel">
-            <div className="panel-heading">
-              <div><span>REVENUE TREND</span><strong>Gross and net sales velocity</strong></div>
-              <div className="legend"><i /> Net revenue</div>
-            </div>
-            <div className="bar-chart" aria-label={`Revenue trend for ${range}`}>
-              {snapshot.chart.map((value, index) => (
-                <div className="bar-slot" key={`${range}-${index}`}>
-                  <i style={{ height: `${Math.round((value / chartMax) * 100)}%` }} />
-                </div>
-              ))}
-            </div>
-            <div className="chart-axis">
-              {snapshot.labels.map((label, index) => <span key={`${label}-${index}`}>{label}</span>)}
-            </div>
-          </article>
-
-          <article className="panel category-panel">
-            <div className="panel-heading">
-              <div><span>SALES BY CATEGORY</span><strong>Net revenue contribution</strong></div>
-            </div>
-            <div className="category-list">
-              {snapshot.categories.map((category, index) => (
-                <div className="category-row" key={category.name}>
-                  <div><span>{String(index + 1).padStart(2, "0")}</span><strong>{category.name}</strong><b>{category.value}</b></div>
-                  <div className="track"><i style={{ width: `${category.share}%` }} /></div>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="panel funnel-panel">
-            <div className="panel-heading">
-              <div><span>STREAM ACTIVITY</span><strong>Live commerce event composition</strong></div>
-              <div className="legend">selected range</div>
-            </div>
-            <div className="funnel">
-              <div style={{ width: "100%" }}><span>Product views</span><b>{funnel.product_views.toLocaleString()}</b></div>
-              <div style={{ width: `${Math.max(40, funnel.cart_additions / funnelMax * 100)}%` }}><span>Cart additions</span><b>{funnel.cart_additions.toLocaleString()}</b></div>
-              <div style={{ width: `${Math.max(40, funnel.checkout_starts / funnelMax * 100)}%` }}><span>Checkout starts</span><b>{funnel.checkout_starts.toLocaleString()}</b></div>
-              <div style={{ width: `${Math.max(40, funnel.purchases / funnelMax * 100)}%` }}><span>Purchases</span><b>{funnel.purchases.toLocaleString()}</b></div>
-            </div>
-          </article>
-
-          <article className="panel events-panel">
-            <div className="panel-heading">
-              <div><span>RECENT EVENTS</span><strong>Persisted synthetic stream</strong></div>
-              <div className="live-dot"><i /> {connectionState === "live" ? "live" : "connecting"}</div>
-            </div>
-            <div className="event-table" role="table" aria-label="Recent synthetic events">
-              {displayEvents.map((event) => (
-                <div className="event-row" role="row" key={`${event.time}-${event.id}`}>
-                  <span role="cell">{event.time}</span>
-                  <strong role="cell">{event.type}</strong>
-                  <code role="cell">{event.id}</code>
-                  <b role="cell">{event.value}</b>
-                  <i role="cell">{event.status}</i>
-                </div>
-              ))}
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section className="architecture" id="architecture">
+      <section className="live-section" id="live" aria-labelledby="live-title">
         <div className="section-shell">
-          <div className="section-heading architecture-heading">
+          <div className="live-heading">
             <div>
-              <p className="eyebrow">SYSTEM DESIGN</p>
-              <h2>One governed path from event to insight</h2>
+              <p className="eyebrow">LIVE PRODUCT DEMO</p>
+              <h2 id="live-title">The data is moving now.</h2>
+              <p>Render appends synthetic events while awake. Supabase provides durable PostgreSQL history across sleep, restart, and deploy cycles.</p>
             </div>
-            <p>
-              PySpark owns Bronze and Silver. dbt owns Gold. Airflow coordinates execution
-              without becoming part of the business-data path.
-            </p>
+            <div className={`connection-state ${connectionState}`} aria-live="polite">
+              <i aria-hidden="true" />
+              <span>{connectionState === "live" ? "Streaming" : connectionState === "retrying" ? "Reconnecting" : "Connecting"}</span>
+            </div>
           </div>
-          <div className="pipeline" aria-label="Canonical platform architecture">
-            {pipeline.map(([number, title, subtitle], index) => (
-              <div className="pipeline-step-wrap" key={number}>
-                <div className="pipeline-step">
-                  <span>{number}</span>
-                  <strong>{title}</strong>
-                  <small>{subtitle}</small>
+
+          <div className="runtime-bar" aria-label="Live runtime status">
+            <div><span>Freshness</span><strong>{liveData ? `${liveData.runtime.freshnessSeconds}s` : "—"}</strong></div>
+            <div><span>Throughput</span><strong>{liveData ? `${liveData.runtime.eventsPerSecond}/s` : "—"}</strong></div>
+            <div><span>Persisted events</span><strong>{liveData?.runtime.totalEvents.toLocaleString() ?? "—"}</strong></div>
+            <div><span>Generated this wake</span><strong>{liveData?.runtime.eventsThisWake.toLocaleString() ?? "—"}</strong></div>
+            <p>Synthetic data only · no customer information</p>
+          </div>
+
+          <div className="analytics-toolbar">
+            <div className="view-tabs" aria-label="Choose analytics view">
+              <button type="button" aria-pressed={dataView === "performance"} onClick={() => setDataView("performance")}>Performance</button>
+              <button type="button" aria-pressed={dataView === "events"} onClick={() => setDataView("events")}>Latest events</button>
+            </div>
+            <div className="range-tabs" aria-label="Choose reporting period">
+              {(Object.keys(fallbackSnapshots) as RangeKey[]).map((item) => (
+                <button key={item} type="button" aria-pressed={range === item} onClick={() => changeRange(item)}>{item}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="kpi-grid">
+            <article><span>Net revenue</span><strong>{snapshot.revenue}</strong><small>Purchases less refunds</small></article>
+            <article><span>Completed orders</span><strong>{snapshot.orders}</strong><small>Purchase events</small></article>
+            <article><span>Average order</span><strong>{snapshot.aov}</strong><small>Net revenue per order</small></article>
+            <article><span>Session conversion</span><strong>{snapshot.conversion}</strong><small>Orders per active session</small></article>
+          </div>
+
+          {dataView === "performance" ? (
+            <div className="performance-view">
+              <article className="chart-card">
+                <div className="card-heading">
+                  <div><span>REVENUE OVER TIME</span><h3>{range} sales movement</h3></div>
+                  <small>Live PostgreSQL aggregate</small>
                 </div>
-                {index < pipeline.length - 1 && <i className="pipeline-arrow" aria-hidden="true">→</i>}
+                <div className="bar-chart" aria-label={`Revenue values for ${range}`}>
+                  {chart.map((value, index) => (
+                    <div className="bar-column" key={`${range}-${index}`}>
+                      <i style={{ height: `${Math.max(4, Math.round((value / chartMax) * 100))}%` }} />
+                      <span>{labels[index] && (index === 0 || index === chart.length - 1 || index % 3 === 0) ? labels[index] : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="category-card">
+                <div className="card-heading"><div><span>REVENUE MIX</span><h3>Top categories</h3></div></div>
+                <div className="category-list">
+                  {snapshot.categories.map((category, index) => (
+                    <div className="category-item" key={category.name}>
+                      <div><b>{String(index + 1).padStart(2, "0")}</b><strong>{category.name}</strong><span>{category.value}</span></div>
+                      <i><span style={{ width: `${category.share}%` }} /></i>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            </div>
+          ) : (
+            <article className="events-card">
+              <div className="card-heading">
+                <div><span>RECENT ACTIVITY</span><h3>Latest persisted events</h3></div>
+                <small>Refreshes every five seconds</small>
               </div>
-            ))}
+              <div className="event-table" role="table" aria-label="Latest synthetic events">
+                <div className="event-row event-header" role="row">
+                  <span role="columnheader">Time</span><span role="columnheader">Event</span><span role="columnheader">ID</span><span role="columnheader">Value</span><span role="columnheader">Status</span>
+                </div>
+                {events.map((event) => (
+                  <div className="event-row" role="row" key={`${event.time}-${event.id}`}>
+                    <span role="cell">{event.time}</span><strong role="cell">{event.type}</strong><code role="cell">{event.id}</code><b role="cell">{event.value}</b><i role="cell">{event.status}</i>
+                  </div>
+                ))}
+              </div>
+            </article>
+          )}
+        </div>
+      </section>
+
+      <section className="architecture section-shell" id="architecture" aria-labelledby="architecture-title">
+        <div className="section-intro architecture-intro">
+          <p className="eyebrow">SYSTEM DESIGN</p>
+          <h2 id="architecture-title">Explore the production data path.</h2>
+          <p>Select a stage to understand what it owns. The main path remains linear; Airflow controls execution from outside the business-data flow.</p>
+        </div>
+
+        <div className="pipeline-scroller" aria-label="Canonical platform architecture">
+          {pipelineStages.map((item, index) => (
+            <div className="pipeline-node-wrap" key={item.number}>
+              <button type="button" className="pipeline-node" aria-pressed={selectedStage === index} onClick={() => setSelectedStage(index)}>
+                <span>{item.number}</span><strong>{item.title}</strong><small>{item.subtitle}</small>
+              </button>
+              {index < pipelineStages.length - 1 && <i className="flow-arrow" aria-hidden="true">→</i>}
+            </div>
+          ))}
+        </div>
+
+        <div className="stage-detail" aria-live="polite">
+          <div className="stage-index">{stage.number}</div>
+          <div><span>{stage.title} · {stage.subtitle}</span><h3>{stage.purpose}</h3></div>
+          <div><span>OUTPUT</span><p>{stage.output}</p></div>
+        </div>
+
+        <div className="airflow-row">
+          <div><span>CONTROL PLANE</span><strong>Airflow</strong></div>
+          <p>Schedules, retries, and monitors Databricks and dbt. It coordinates the pipeline without becoming part of the data path.</p>
+          <div className="airflow-targets"><span>Databricks</span><span>dbt</span></div>
+        </div>
+      </section>
+
+      <section className="operating-modes" aria-labelledby="modes-title">
+        <div className="section-shell">
+          <div className="section-intro">
+            <p className="eyebrow">CLEAR TRADE-OFFS</p>
+            <h2 id="modes-title">One product, two operating modes.</h2>
+            <p>The repository demonstrates the complete platform. The public runtime is deliberately smaller so recruiters can use it within a $5 monthly ceiling.</p>
           </div>
-          <div className="control-plane">
-            <div><span>AIRFLOW</span><strong>Control Plane</strong></div>
-            <i aria-hidden="true">↗</i>
-            <div><span>CONTROLS</span><strong>Databricks</strong></div>
-            <i aria-hidden="true">↗</i>
-            <div><span>CONTROLS</span><strong>dbt</strong></div>
-            <p>Scheduling · retries · dependency management · failure visibility</p>
-          </div>
-          <div className="demo-runtime">
-            <strong>LIVE FREE-TIER DEMO</strong>
-            <span>Render web process → resumable synthetic producer → Supabase PostgreSQL</span>
-            <p>The cloud demo uses the repository&apos;s compatibility path; the canonical production design above remains unchanged.</p>
+          <div className="mode-grid">
+            <article>
+              <span className="mode-label">PRODUCTION REFERENCE</span>
+              <h3>Built for governed scale</h3>
+              <p>Kafka, Databricks, Delta Lake, dbt, PostgreSQL, Metabase, and Airflow implement the complete architecture.</p>
+              <ul><li>Replayable event transport</li><li>Bronze, Silver, and Gold ownership</li><li>Independent orchestration control plane</li></ul>
+            </article>
+            <article className="mode-live">
+              <span className="mode-label"><i /> PUBLIC DEMO</span>
+              <h3>Built for reliable access</h3>
+              <p>Render runs the interface and resumable producer. Supabase keeps event history outside Render&apos;s ephemeral filesystem.</p>
+              <ul><li>Starts streaming whenever Render wakes</li><li>Database lease prevents duplicate writers</li><li>Existing events survive restart and deploy</li></ul>
+            </article>
           </div>
         </div>
       </section>
 
-      <section className="quality section-shell" id="quality">
-        <div className="section-heading split-heading">
-          <div>
-            <p className="eyebrow">TRUST BY DESIGN</p>
-            <h2>Quality is part of the pipeline</h2>
-            <p>Every serving model crosses automated schema, validity, freshness, and relationship gates.</p>
-          </div>
-          <div className="quality-score" aria-label="Data quality score 99.98 percent">
-            <div><strong>99.98</strong><span>%</span></div>
-            <small>VALID RECORDS</small>
-          </div>
+      <section className="reliability section-shell" id="reliability" aria-labelledby="reliability-title">
+        <div className="section-intro reliability-intro">
+          <p className="eyebrow">ENGINEERING BEYOND THE HAPPY PATH</p>
+          <h2 id="reliability-title">Designed to recover, explain, and prove.</h2>
+          <p>Open a topic to see how the implementation handles real operational concerns.</p>
         </div>
-        <div className="quality-grid">
-          <article>
-            <span className="quality-number">01</span>
-            <h3>Schema contracts</h3>
-            <p>Typed event payloads, required keys, accepted event types, and quarantine routing.</p>
-            <b>10 event contracts passing</b>
-          </article>
-          <article>
-            <span className="quality-number">02</span>
-            <h3>Streaming guarantees</h3>
-            <p>Checkpoint isolation, event-time watermarks, deterministic IDs, and deduplication.</p>
-            <b>0 duplicate Gold keys</b>
-          </article>
-          <article>
-            <span className="quality-number">03</span>
-            <h3>Analytics tests</h3>
-            <p>Uniqueness, nullability, relationships, accepted values, and business assertions.</p>
-            <b>55 / 55 dbt checks passing</b>
-          </article>
-          <article>
-            <span className="quality-number">04</span>
-            <h3>Freshness guardrails</h3>
-            <p>Silver freshness blocks stale Gold publication before dashboards can drift.</p>
-            <b>Latest event: {liveData ? `${liveData.runtime.freshnessSeconds} seconds` : "connecting"}</b>
-          </article>
+        <div className="accordion-list">
+          <details open>
+            <summary><span>01</span><strong>Replay and recovery</strong><i>+</i></summary>
+            <p>Raw events remain immutable. Checkpoints resume normal processing, while a new consumer group and checkpoint enable controlled replay without mutating history.</p>
+          </details>
+          <details>
+            <summary><span>02</span><strong>Data quality</strong><i>+</i></summary>
+            <p>Schema contracts, watermark-based deduplication, quarantine routing, freshness checks, and dbt assertions protect every serving model.</p>
+          </details>
+          <details>
+            <summary><span>03</span><strong>Idempotent publication</strong><i>+</i></summary>
+            <p>Kafka offsets commit only after database writes succeed, event IDs prevent duplicates, and Gold publication replaces serving tables only after a complete source frame is ready.</p>
+          </details>
+          <details>
+            <summary><span>04</span><strong>Cost-aware deployment</strong><i>+</i></summary>
+            <p>The public service accepts Render cold starts and uses an external PostgreSQL lease. That preserves the behavior recruiters need to inspect without pretending the full platform fits a free tier.</p>
+          </details>
         </div>
       </section>
 
-      <section className="proof">
-        <div className="section-shell proof-grid">
-          <div>
-            <p className="eyebrow">ENGINEERING PROOF</p>
-            <h2>Built beyond the happy path.</h2>
-            <p>
-              Replayable raw events, late-data handling, quarantine tables, idempotent publication,
-              cloud migration guidance, and automated validation are included in the implementation.
-            </p>
-          </div>
-          <div className="proof-stats">
-            <div><strong>9</strong><span>Pipeline stages</span></div>
-            <div><strong>8</strong><span>Gold models</span></div>
-            <div><strong>55</strong><span>dbt checks</span></div>
-            <div><strong>17</strong><span>BI questions</span></div>
-          </div>
-          <div className="stack-list" aria-label="Technology stack">
-            {[
-              "Python", "Kafka", "Databricks", "PySpark", "Delta Lake", "Airflow",
-              "dbt", "PostgreSQL", "Metabase", "Docker"
-            ].map((item) => <span key={item}>{item}</span>)}
-          </div>
+      <section className="final-cta">
+        <div className="section-shell">
+          <div><p className="eyebrow">EXPLORE THE IMPLEMENTATION</p><h2>Follow every decision into the code.</h2></div>
+          <p>The repository includes event contracts, streaming notebooks, dbt models, Airflow orchestration, dashboard provisioning, tests, and deployment guidance.</p>
+          <a className="button button-primary" href="https://github.com/dangvq-daniel/e-commerce-lakehouse" target="_blank" rel="noreferrer">Open GitHub repository <span aria-hidden="true">↗</span></a>
         </div>
       </section>
 
       <footer>
-        <div>
-          <strong>E-commerce Lakehouse</strong>
-          <p>Synthetic analytics. Production-shaped engineering.</p>
-        </div>
-        <p className="budget-note">Live Render demo · durable Supabase PostgreSQL · $0/month target</p>
-        <a
-          href="https://github.com/dangvq-daniel/e-commerce-lakehouse"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Explore the repository <span aria-hidden="true">↗</span>
-        </a>
+        <a className="brand" href="#top"><span className="brand-mark" aria-hidden="true">EL</span><span className="brand-copy"><strong>E-commerce Lakehouse</strong><small>Built with synthetic data</small></span></a>
+        <p>Render + Supabase public demo · canonical lakehouse architecture in the repository</p>
+        <a href="#top">Back to top ↑</a>
       </footer>
     </main>
   );

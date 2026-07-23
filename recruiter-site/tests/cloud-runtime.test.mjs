@@ -11,7 +11,7 @@ test("cloud runtime is resumable and backed by PostgreSQL", async () => {
     readFile(new URL("app/page.tsx", root), "utf8"),
   ]);
 
-  assert.match(stream, /seedIfEmpty/);
+  assert.match(stream, /seedHistoryIfNeeded/);
   assert.match(stream, /stream_leases/);
   assert.match(database, /DATABASE_URL/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS portfolio\.events/);

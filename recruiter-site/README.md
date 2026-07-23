@@ -14,7 +14,7 @@ sleep, restart, and deploy cycles.
   the IPv4-compatible pooler, not Supabase's IPv6-only direct endpoint.
 - `DEMO_STREAMING_ENABLED`: set to `true` to start the producer with the web process.
 - `EVENT_INTERVAL_MS`: delay between events; defaults to 3000 ms.
-- `SEED_EVENT_COUNT`: historical events inserted only when the table is empty.
+- `SEED_EVENT_COUNT`: minimum historical baseline; only missing events are added and existing history is never truncated.
 
 The application creates the `portfolio` schema and its tables idempotently on startup.
 It never truncates existing event history.

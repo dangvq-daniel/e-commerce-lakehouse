@@ -113,8 +113,8 @@ production design while running a compact compatibility path for live demonstrat
   free web process.
 - Supabase PostgreSQL stores event history outside Render's ephemeral filesystem.
 - A database lease prevents duplicate producers during rolling deployments.
-- The application seeds historical events only when the table is empty, then appends
-  one new event every three seconds while awake.
+- The application tops up a small historical baseline only when below the configured
+  minimum, then appends one new event every three seconds while awake.
 - `render.yaml` is the deployment blueprint; `DATABASE_URL` remains a Render secret.
 
 This path demonstrates cold-start recovery and durable analytics within the $5 monthly
