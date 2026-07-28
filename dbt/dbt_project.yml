@@ -15,14 +15,16 @@ models:
     staging:
       +materialized: view
       +schema: staging
+      +file_format: delta
     intermediate:
       +materialized: view
       +schema: intermediate
+      +file_format: delta
     marts:
       +materialized: table
       +schema: gold
+      +file_format: delta
 
 snapshots:
   ecommerce_analytics:
     +target_schema: snapshots
-

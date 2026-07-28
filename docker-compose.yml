@@ -5,6 +5,26 @@ x-postgres-environment: &postgres-environment
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce}
   POSTGRES_DB: ${POSTGRES_DB:-airflow}
 
+x-spark-environment: &spark-environment
+  KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  KAFKA_TOPICS: customer_events,purchase_events,inventory_events,refund_events,product_events
+  LAKEHOUSE_ROOT: /lakehouse
+  SPARK_WAREHOUSE_DIR: /lakehouse/warehouse
+  SPARK_TRIGGER_MODE: ${SPARK_TRIGGER_MODE:-available-now}
+  POSTGRES_JDBC_URL: jdbc:postgresql://postgres:5432/${WAREHOUSE_DB:-warehouse}
+  POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce}
+
+x-spark-common: &spark-common
+  image: ecommerce-lakehouse-spark:local
+  build:
+    context: .
+    dockerfile: spark/Dockerfile
+  environment: *spark-environment
+  volumes:
+    - delta-data:/lakehouse
+    - spark-ivy:/opt/spark/.ivy2
+
 x-airflow-common: &airflow-common
   image: ecommerce-lakehouse-airflow:local
   build:
@@ -26,7 +46,11 @@ x-airflow-common: &airflow-common
     WAREHOUSE_PORT: 5432
     WAREHOUSE_DB: ${WAREHOUSE_DB:-warehouse}
     DBT_PROFILES_DIR: /opt/airflow/dbt
-    DBT_TARGET: ${DBT_TARGET:-dev}
+    DBT_TARGET: ${DBT_TARGET:-local_spark}
+    DBT_TARGET_PATH: /tmp/dbt-target
+    DBT_LOG_PATH: /tmp/dbt-logs
+    PIPELINE_ENV: ${PIPELINE_ENV:-local}
+    SPARK_JOBS_URL: http://spark-jobs:8090
     DATABRICKS_HOST: ${DATABRICKS_HOST:-}
     DATABRICKS_TOKEN: ${DATABRICKS_TOKEN:-}
     DATABRICKS_CATALOG: ${DATABRICKS_CATALOG:-ecommerce}
@@ -47,6 +71,8 @@ x-airflow-common: &airflow-common
     postgres:
       condition: service_healthy
     kafka:
+      condition: service_healthy
+    spark-jobs:
       condition: service_healthy
 
 services:
@@ -117,6 +143,7 @@ services:
     restart: unless-stopped
 
   event-sink:
+    profiles: ["compatibility"]
     build:
       context: .
       dockerfile: warehouse/Dockerfile
@@ -131,6 +158,70 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+    restart: unless-stopped
+
+  spark-thrift:
+    <<: *spark-common
+    hostname: spark-thrift
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >-
+        /opt/spark/sbin/start-thriftserver.sh
+        --master local[2]
+        --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
+        --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+        --conf spark.sql.catalogImplementation=hive
+        --conf spark.sql.warehouse.dir=/lakehouse/warehouse
+        --conf 'spark.hadoop.javax.jdo.option.ConnectionURL=jdbc:derby:;databaseName=/lakehouse/metastore_db;create=true'
+        --hiveconf hive.server2.thrift.bind.host=0.0.0.0
+        --hiveconf hive.server2.thrift.port=10000
+        &&
+        tail -F /opt/spark/logs/*
+    ports:
+      - "10000:10000"
+      - "4041:4040"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/10000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+  spark-catalog-init:
+    <<: *spark-common
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >-
+        /opt/spark/bin/beeline
+        -u jdbc:hive2://spark-thrift:10000/default
+        -f /opt/ecommerce/spark/sql/bootstrap.sql
+    depends_on:
+      spark-thrift:
+        condition: service_healthy
+    restart: "no"
+
+  spark-jobs:
+    <<: *spark-common
+    ports:
+      - "8090:8090"
+      - "4040:4040"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      spark-catalog-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=2)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     restart: unless-stopped
 
   metabase:
@@ -222,3 +313,5 @@ volumes:
   kafka-data:
   postgres-data:
   airflow-logs:
+  delta-data:
+  spark-ivy:

@@ -27,6 +27,16 @@ class Metabase:
         return response.json() if response.content else None
 
     def initialize(self) -> None:
+        login_payload = {"username": self.email, "password": self.password}
+        login_response = self.session.post(
+            f"{self.base_url}/api/session",
+            json=login_payload,
+            timeout=30,
+        )
+        if login_response.ok:
+            self.session.headers["X-Metabase-Session"] = login_response.json()["id"]
+            return
+
         properties = self.request("GET", "/api/session/properties")
         setup_token = properties.get("setup-token")
         if setup_token:
@@ -50,9 +60,7 @@ class Metabase:
                     "database": self.database_payload(),
                 },
             )
-        login = self.request(
-            "POST", "/api/session", json={"username": self.email, "password": self.password}
-        )
+        login = self.request("POST", "/api/session", json=login_payload)
         self.session.headers["X-Metabase-Session"] = login["id"]
 
     @staticmethod
@@ -95,16 +103,16 @@ class Metabase:
             )["id"]
         )
 
-    def card_id(self, name: str, query_path: str, display: str, database_id: int) -> int:
+    def card_id(self, name: str, query: str, display: str, database_id: int) -> int:
         response = self.request("GET", "/api/card")
         cards = response.get("data", response) if isinstance(response, dict) else response
         existing = next((card for card in cards if card["name"] == name), None)
         if existing:
             return int(existing["id"])
-        sql = (ROOT / "queries" / query_path).read_text(encoding="utf-8").strip().rstrip(";")
+        sql = (ROOT / "queries" / query).read_text(encoding="utf-8").strip().rstrip(";")
         payload = {
             "name": name,
-            "description": f"Provisioned from dashboards/queries/{query_path}",
+            "description": f"Provisioned from dashboards/queries/{query}",
             "display": display,
             "dataset_query": {
                 "type": "native",
@@ -118,22 +126,43 @@ class Metabase:
 
     def attach_card(self, dashboard_id: int, card_id: int, position: int) -> None:
         dashboard = self.request("GET", f"/api/dashboard/{dashboard_id}")
+        dashcards = dashboard.get("dashcards", [])
         attached_ids = {
-            item.get("card", {}).get("id") for item in dashboard.get("dashcards", [])
+            item.get("card_id") or item.get("card", {}).get("id") for item in dashcards
         }
         if card_id in attached_ids:
             return
-        self.request(
-            "POST",
-            f"/api/dashboard/{dashboard_id}/cards",
-            json={
-                "cardId": card_id,
+
+        cards = [
+            {
+                "id": item["id"],
+                "card_id": item.get("card_id") or item.get("card", {}).get("id"),
+                "row": item["row"],
+                "col": item["col"],
+                "size_x": item["size_x"],
+                "size_y": item["size_y"],
+                "parameter_mappings": item.get("parameter_mappings") or [],
+                "series": item.get("series") or [],
+            }
+            for item in dashcards
+        ]
+        temporary_id = min([-1, *(item["id"] for item in cards if item["id"] < 0)]) - 1
+        cards.append(
+            {
+                "id": temporary_id,
+                "card_id": card_id,
                 "row": (position // 2) * 4,
                 "col": (position % 2) * 9,
-                "sizeX": 9,
-                "sizeY": 4,
+                "size_x": 9,
+                "size_y": 4,
                 "parameter_mappings": [],
-            },
+                "series": [],
+            }
+        )
+        self.request(
+            "PUT",
+            f"/api/dashboard/{dashboard_id}/cards",
+            json={"cards": cards, "tabs": dashboard.get("tabs", [])},
         )
 
 
@@ -155,4 +184,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

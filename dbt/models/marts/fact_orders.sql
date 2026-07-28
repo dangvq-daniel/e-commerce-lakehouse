@@ -1,3 +1,10 @@
+{{ config(
+    materialized='delta_merge' if target.type == 'spark' else ('incremental' if target.type == 'databricks' else 'table'),
+    file_format='delta',
+    incremental_strategy='merge',
+    unique_key='order_line_key'
+) }}
+
 select
     o.order_line_id as order_line_key,
     o.order_id,

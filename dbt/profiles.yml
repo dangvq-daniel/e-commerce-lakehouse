@@ -9,6 +9,17 @@ ecommerce_analytics:
       http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
       token: "{{ env_var('DATABRICKS_TOKEN') }}"
       threads: 8
+    local_spark:
+      type: spark
+      method: thrift
+      host: "{{ env_var('SPARK_THRIFT_HOST', 'spark-thrift') }}"
+      port: "{{ env_var('SPARK_THRIFT_PORT', '10000') | int }}"
+      user: dbt
+      schema: analytics
+      threads: 4
+      connect_retries: 10
+      connect_timeout: 30
+      retry_all: true
     dev:
       type: postgres
       host: "{{ env_var('WAREHOUSE_HOST', 'localhost') }}"

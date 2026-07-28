@@ -11,7 +11,7 @@ select
     coalesce(order_status, 'completed') as order_status,
     country,
     device
-from {% if target.type == 'databricks' %}{{ source('silver', 'orders') }}{% else %}{{ ref('stg_events') }}{% endif %}
-{% if target.type != 'databricks' %}
+from {% if target.type in ['databricks', 'spark'] %}{{ source('silver', 'orders') }}{% else %}{{ ref('stg_events') }}{% endif %}
+{% if target.type not in ['databricks', 'spark'] %}
 where event_type = 'purchase'
 {% endif %}

@@ -159,7 +159,9 @@ class EventFactory:
 
     def _make_refund(self) -> dict[str, Any]:
         if not self.purchases:
-            self._make_purchase()
+            # Emit the prerequisite purchase first so a refund can never arrive
+            # downstream without its referenced order.
+            return self._make_purchase()
         purchase = self.purchases.pop(self.random.randrange(len(self.purchases)))
         event = self._with_product(
             self._envelope("refund", int(purchase["user_id"])), int(purchase["product_id"])

@@ -5,7 +5,7 @@ select
     event_timestamp,
     inventory_quantity,
     inventory_delta
-from {% if target.type == 'databricks' %}{{ source('silver', 'inventory') }}{% else %}{{ ref('stg_events') }}{% endif %}
-{% if target.type != 'databricks' %}
+from {% if target.type in ['databricks', 'spark'] %}{{ source('silver', 'inventory') }}{% else %}{{ ref('stg_events') }}{% endif %}
+{% if target.type not in ['databricks', 'spark'] %}
 where event_type = 'inventory_update'
 {% endif %}

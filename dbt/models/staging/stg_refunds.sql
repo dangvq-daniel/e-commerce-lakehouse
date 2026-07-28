@@ -9,7 +9,7 @@ select
     price as unit_price,
     round(quantity * price, 2) as refund_amount,
     refund_reason
-from {% if target.type == 'databricks' %}{{ source('silver', 'refunds') }}{% else %}{{ ref('stg_events') }}{% endif %}
-{% if target.type != 'databricks' %}
+from {% if target.type in ['databricks', 'spark'] %}{{ source('silver', 'refunds') }}{% else %}{{ ref('stg_events') }}{% endif %}
+{% if target.type not in ['databricks', 'spark'] %}
 where event_type = 'refund'
 {% endif %}

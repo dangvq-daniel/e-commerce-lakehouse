@@ -1,3 +1,10 @@
+{{ config(
+    materialized='delta_merge' if target.type == 'spark' else ('incremental' if target.type == 'databricks' else 'table'),
+    file_format='delta',
+    incremental_strategy='merge',
+    unique_key='date_key'
+) }}
+
 with bounds as (
     select
         coalesce(cast(min(event_timestamp) as date), current_date) as min_date,
@@ -5,7 +12,7 @@ with bounds as (
     from {{ ref('stg_events') }}
 ),
 dates as (
-    {% if target.type == 'databricks' %}
+    {% if target.type in ['databricks', 'spark'] %}
     select explode(sequence(min_date, max_date, interval 1 day)) as date_key
     from bounds
     {% else %}
@@ -19,7 +26,7 @@ select
     cast(extract(quarter from date_key) as integer) as quarter,
     cast(extract(month from date_key) as integer) as month,
     cast(extract(day from date_key) as integer) as day,
-    {% if target.type == 'databricks' %}
+    {% if target.type in ['databricks', 'spark'] %}
     date_format(date_key, 'EEEE') as day_name,
     dayofweek(date_key) in (1, 7) as is_weekend
     {% else %}

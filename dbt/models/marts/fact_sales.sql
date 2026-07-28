@@ -1,3 +1,10 @@
+{{ config(
+    materialized='delta_merge' if target.type == 'spark' else ('incremental' if target.type == 'databricks' else 'table'),
+    file_format='delta',
+    incremental_strategy='merge',
+    unique_key='sale_key'
+) }}
+
 with refunds as (
     select order_id, sum(refund_amount) as refunded_amount
     from {{ ref('stg_refunds') }}

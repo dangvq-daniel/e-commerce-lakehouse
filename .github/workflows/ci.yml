@@ -22,8 +22,8 @@ jobs:
       - name: Unit tests
         run: python -m pytest --cov=generator --cov=warehouse --cov-report=term-missing
       - name: Python lint
-        run: python -m ruff check generator warehouse tests dashboards/bootstrap_metabase.py airflow/include airflow/dags
+        run: python -m ruff check generator warehouse spark tests dashboards/bootstrap_metabase.py airflow/include airflow/dags
       - name: Compile Python sources
-        run: python -m compileall -q generator warehouse dashboards airflow databricks
+        run: python -m compileall -q generator warehouse spark dashboards airflow databricks
       - name: Validate Compose model
         run: docker compose config --quiet

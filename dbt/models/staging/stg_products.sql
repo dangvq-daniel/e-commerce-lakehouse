@@ -1,6 +1,6 @@
 select
     product_id,
-    {% if target.type == 'databricks' %}
+    {% if target.type in ['databricks', 'spark'] %}
     max_by(product_name, event_timestamp) as product_name,
     max_by(category, event_timestamp) as category,
     max_by(price, event_timestamp) as current_price,
@@ -11,6 +11,6 @@ select
     {% endif %}
     min(event_timestamp) as first_seen_at,
     max(event_timestamp) as last_seen_at
-from {% if target.type == 'databricks' %}{{ source('silver', 'product_activity') }}{% else %}{{ ref('stg_events') }}{% endif %}
+from {% if target.type in ['databricks', 'spark'] %}{{ source('silver', 'product_activity') }}{% else %}{{ ref('stg_events') }}{% endif %}
 where product_id is not null
 group by product_id

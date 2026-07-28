@@ -1,3 +1,10 @@
+{{ config(
+    materialized='delta_merge' if target.type == 'spark' else ('incremental' if target.type == 'databricks' else 'table'),
+    file_format='delta',
+    incremental_strategy='merge',
+    unique_key='customer_key'
+) }}
+
 select
     {{ stable_hash('customer_id') }} as customer_key,
     customer_id,

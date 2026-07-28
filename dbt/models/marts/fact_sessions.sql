@@ -1,3 +1,10 @@
+{{ config(
+    materialized='delta_merge' if target.type == 'spark' else ('incremental' if target.type == 'databricks' else 'table'),
+    file_format='delta',
+    incremental_strategy='merge',
+    unique_key='session_id'
+) }}
+
 select
     session_id,
     customer_id,
@@ -12,4 +19,3 @@ select
 from {{ ref('stg_events') }}
 where session_id is not null
 group by session_id, customer_id
-

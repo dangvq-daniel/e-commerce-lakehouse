@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 type RangeKey = "24H" | "7D" | "30D";
 type DataView = "performance" | "events";
+type ArchitectureMode = "local" | "cloud";
+type IconName = "airflow" | "python" | "kafka" | "spark" | "bronze" | "silver" | "dbt" | "gold" | "postgres" | "dashboard" | "render" | "supabase";
 
 type Snapshot = {
   revenue: string;
@@ -43,6 +45,37 @@ function friendlyEventType(value: string) {
 
 function megabytes(value: number) {
   return Math.max(0, Math.round(value / 1_000_000));
+}
+
+function StageIcon({ name }: { name: IconName }) {
+  if (name === "airflow") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="3" /><circle cx="8" cy="23" r="3" /><circle cx="24" cy="23" r="3" /><path d="M16 10v5M16 15 8 20M16 15l8 5" /></svg>;
+  }
+  if (name === "python") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m12 9-6 7 6 7M20 9l6 7-6 7M18 6l-4 20" /></svg>;
+  }
+  if (name === "kafka") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="3" /><circle cx="8" cy="23" r="3" /><circle cx="24" cy="23" r="3" /><path d="M14 9.5 10 20M18 9.5 22 20M11 23h10" /></svg>;
+  }
+  if (name === "spark") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m18 4-9 14h7l-2 10 9-15h-7z" /></svg>;
+  }
+  if (name === "dbt") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="6" width="9" height="9" rx="2" /><rect x="18" y="6" width="9" height="9" rx="2" /><rect x="11.5" y="19" width="9" height="9" rx="2" /></svg>;
+  }
+  if (name === "dashboard") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 26V15M13 26V9M20 26V18M27 26V5" /></svg>;
+  }
+  if (name === "render") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 25h16a6 6 0 0 0 1-12 9 9 0 0 0-17-2 7 7 0 0 0 0 14Z" /></svg>;
+  }
+  const medal = name === "bronze" ? "B" : name === "silver" ? "S" : name === "gold" ? "G" : "";
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <ellipse cx="16" cy="8" rx="10" ry="4" /><path d="M6 8v16c0 2 4.5 4 10 4s10-2 10-4V8M6 16c0 2 4.5 4 10 4s10-2 10-4" />
+      {medal ? <text x="16" y="13" textAnchor="middle">{medal}</text> : null}
+    </svg>
+  );
 }
 
 const fallbackSnapshots: Record<RangeKey, Snapshot> = {
@@ -104,6 +137,7 @@ const fallbackEvents = [
 const systemNodes = [
   {
     id: "airflow",
+    icon: "airflow" as IconName,
     number: "CTRL",
     title: "Airflow",
     subtitle: "Control Plane",
@@ -114,6 +148,7 @@ const systemNodes = [
   },
   {
     id: "simulator",
+    icon: "python" as IconName,
     number: "01",
     title: "Python",
     subtitle: "Event Simulator",
@@ -124,6 +159,7 @@ const systemNodes = [
   },
   {
     id: "kafka",
+    icon: "kafka" as IconName,
     number: "02",
     title: "Kafka",
     subtitle: "Topics",
@@ -134,9 +170,10 @@ const systemNodes = [
   },
   {
     id: "databricks",
+    icon: "spark" as IconName,
     number: "03",
-    title: "Databricks",
-    subtitle: "PySpark Streaming",
+    title: "Spark",
+    subtitle: "PySpark / Databricks",
     group: "Process",
     kind: "data",
     purpose: "Processes events continuously with checkpoints, watermarks, and failure recovery.",
@@ -144,6 +181,7 @@ const systemNodes = [
   },
   {
     id: "bronze",
+    icon: "bronze" as IconName,
     number: "04",
     title: "Delta",
     subtitle: "Bronze",
@@ -154,6 +192,7 @@ const systemNodes = [
   },
   {
     id: "silver",
+    icon: "silver" as IconName,
     number: "05",
     title: "Delta",
     subtitle: "Silver",
@@ -164,6 +203,7 @@ const systemNodes = [
   },
   {
     id: "dbt",
+    icon: "dbt" as IconName,
     number: "06",
     title: "dbt",
     subtitle: "Staging + Intermediate",
@@ -174,6 +214,7 @@ const systemNodes = [
   },
   {
     id: "gold",
+    icon: "gold" as IconName,
     number: "07",
     title: "Delta",
     subtitle: "Gold",
@@ -184,6 +225,7 @@ const systemNodes = [
   },
   {
     id: "postgres",
+    icon: "postgres" as IconName,
     number: "08",
     title: "PostgreSQL",
     subtitle: "Warehouse",
@@ -194,6 +236,7 @@ const systemNodes = [
   },
   {
     id: "metabase",
+    icon: "dashboard" as IconName,
     number: "09",
     title: "Metabase",
     subtitle: "Dashboard",
@@ -239,6 +282,7 @@ export default function Home() {
   const [range, setRange] = useState<RangeKey>("24H");
   const [dataView, setDataView] = useState<DataView>("performance");
   const [selectedNodeId, setSelectedNodeId] = useState("simulator");
+  const [architectureMode, setArchitectureMode] = useState<ArchitectureMode>("local");
   const [liveData, setLiveData] = useState<LiveAnalytics | null>(null);
   const [connectionState, setConnectionState] = useState<"connecting" | "live" | "retrying">("connecting");
   const [secondsUntilNext, setSecondsUntilNext] = useState(60);
@@ -361,7 +405,7 @@ export default function Home() {
 
         <aside className="journey-card" aria-label="How a customer action becomes a business decision">
           <div className="journey-head">
-            <span>ONE EVENT, END TO END</span>
+            <span>LOCAL PIPELINE WALKTHROUGH</span>
             <b>Purchase completed</b>
           </div>
           <ol>
@@ -404,7 +448,7 @@ export default function Home() {
             <div>
               <p className="eyebrow">LIVE PRODUCT DEMO</p>
               <h2 id="live-title">The data is moving now.</h2>
-              <p>Render appends synthetic events while awake. Supabase provides durable PostgreSQL history across sleep, restart, and deploy cycles.</p>
+              <p>This public path writes slowly while Render is awake. Supabase preserves the history through sleep and redeploys.</p>
             </div>
             <div className={`connection-state ${streamState}`} aria-live="polite">
               <i aria-hidden="true" />
@@ -433,15 +477,15 @@ export default function Home() {
           </div>
 
           <div className="runtime-bar" aria-label="Live runtime status">
-            <div><span>Latest event</span><strong>{runtime ? `${runtime.freshnessSeconds}s ago` : "—"}</strong><small>Refreshes every 10 seconds</small></div>
-            <div><span>Write cadence</span><strong>{runtime ? `1 / ${runtime.writeCadenceSeconds}s` : "—"}</strong><small>{runtime?.estimatedMonthlyEvents.toLocaleString() ?? "43,200"} maximum writes / month</small></div>
-            <div><span>Stored events</span><strong>{runtime?.totalEvents.toLocaleString() ?? "—"}</strong><small>{runtime ? `${runtime.eventCap.toLocaleString()} row hard cap` : "50,000 row hard cap"}</small></div>
+            <div><span>Latest event</span><strong>{runtime ? `${runtime.freshnessSeconds}s ago` : "—"}</strong></div>
+            <div><span>Write cadence</span><strong>{runtime ? `1 / ${runtime.writeCadenceSeconds}s` : "—"}</strong><small>Budget-safe</small></div>
+            <div><span>Stored events</span><strong>{runtime?.totalEvents.toLocaleString() ?? "—"}</strong><small>of {runtime?.eventCap.toLocaleString() ?? "50,000"}</small></div>
             <div className="storage-budget">
               <span>Database size</span><strong>{runtime ? `${megabytes(runtime.databaseSizeBytes)} MB` : "—"}</strong>
               <em className="storage-meter" aria-hidden="true"><i style={{ width: `${storagePercent}%` }} /></em>
-              <small>{storagePercent}% of the 500 MB free quota</small>
+              <small>{storagePercent}% of 500 MB</small>
             </div>
-            <p>{runtime?.retentionDays ?? 35}-day rolling history · writes stop at 200 MB · synthetic data only</p>
+            <p>{runtime?.retentionDays ?? 35}-day history · 200 MB write guard</p>
           </div>
 
           <div className="analytics-toolbar">
@@ -516,28 +560,39 @@ export default function Home() {
       <section className="architecture section-shell" id="architecture" aria-labelledby="architecture-title">
         <div className="section-intro architecture-intro">
           <p className="eyebrow">SYSTEM DESIGN</p>
-          <h2 id="architecture-title">See how the platform actually works.</h2>
-          <p>The solid route carries business data. The dashed branch is Airflow&apos;s control plane, independently coordinating Databricks and dbt.</p>
+          <h2 id="architecture-title">Two environments, no inflated claims.</h2>
+          <p>Explore the verified local lakehouse or the intentionally small public demo. Select any local stage to understand its role.</p>
         </div>
 
+        <div className="architecture-switch" aria-label="Choose architecture environment">
+          <button type="button" aria-pressed={architectureMode === "local"} onClick={() => setArchitectureMode("local")}>
+            <strong>Local full stack</strong><span>Verified end to end</span>
+          </button>
+          <button type="button" aria-pressed={architectureMode === "cloud"} onClick={() => setArchitectureMode("cloud")}>
+            <strong>Public cloud demo</strong><span>Render + Supabase</span>
+          </button>
+        </div>
+
+        {architectureMode === "local" ? (
+        <>
         <div className="architecture-map">
           <div className="map-toolbar">
             <div>
-              <strong>Production architecture</strong>
-              <span>Select a node to inspect its role and immediate connections.</span>
+              <strong>Full lakehouse</strong>
+              <span>Solid: data · Dashed: orchestration</span>
             </div>
             <div className="map-legend" aria-label="Connection legend">
-              <span><i className="legend-data" aria-hidden="true" /> Business data</span>
-              <span><i className="legend-control" aria-hidden="true" /> Control signal</span>
+              <span><i className="legend-data" aria-hidden="true" /> Data</span>
+              <span><i className="legend-control" aria-hidden="true" /> Control</span>
             </div>
           </div>
 
           <div className="system-map-canvas" aria-label="Selectable e-commerce lakehouse system graph">
             <div className="map-lane map-lane-control" aria-hidden="true">
-              <span>CONTROL PLANE</span><small>Schedules, retries, and monitors</small>
+              <span>CONTROL PLANE</span>
             </div>
             <div className="map-lane map-lane-data" aria-hidden="true">
-              <span>DATA PLANE</span><small>Events move through capture, refinement, modeling, and serving</small>
+              <span>DATA PLANE</span>
             </div>
 
             <svg className="map-connections" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
@@ -569,19 +624,19 @@ export default function Home() {
                     key={node.id}
                     type="button"
                     className={`map-node node-${node.id} ${isRelated ? "is-related" : ""}`}
+                    aria-label={`${node.title}: ${node.subtitle}`}
                     aria-pressed={selectedNode.id === node.id}
                     aria-controls="architecture-inspector"
                     onClick={() => setSelectedNodeId(node.id)}
                   >
-                    <span>{node.number} · {node.group}</span>
-                    <strong>{node.title}</strong>
-                    <small>{node.subtitle}</small>
+                    <span className="stage-icon"><StageIcon name={node.icon} /></span>
+                    <span className="map-node-copy"><strong>{node.title}</strong><small>{node.subtitle}</small></span>
                   </button>
                 );
               })}
               <div className="mobile-control-branch" aria-hidden="true">
-                <span>Controls two independent jobs</span>
-                <strong>Databricks</strong>
+                <span>Airflow controls</span>
+                <strong>Spark</strong>
                 <i />
                 <strong>dbt</strong>
               </div>
@@ -591,20 +646,20 @@ export default function Home() {
 
         <div className="node-inspector" id="architecture-inspector" aria-live="polite" key={selectedNode.id}>
           <div className="inspector-identity">
-            <span>{selectedNode.kind === "control" ? "CONTROL PLANE" : `${selectedNode.number} · ${selectedNode.group.toUpperCase()}`}</span>
+            <span>{selectedNode.kind === "control" ? "CONTROL PLANE" : selectedNode.group.toUpperCase()}</span>
             <h3>{selectedNode.title}</h3>
             <p>{selectedNode.subtitle}</p>
           </div>
           <div className="inspector-purpose">
-            <span>WHY IT EXISTS</span>
+            <span>ROLE</span>
             <strong>{selectedNode.purpose}</strong>
           </div>
           <div className="inspector-output">
-            <span>WHAT IT PRODUCES</span>
+            <span>OUTPUT</span>
             <p>{selectedNode.output}</p>
           </div>
           <div className="inspector-links">
-            <span>IMMEDIATE CONNECTIONS</span>
+            <span>CONNECTED TO</span>
             <div>
               {incomingNodes.map((node) => (
                 <button key={`from-${node.id}`} type="button" onClick={() => setSelectedNodeId(node.id)}>
@@ -619,6 +674,26 @@ export default function Home() {
             </div>
           </div>
         </div>
+        </>
+        ) : (
+          <div className="cloud-architecture" aria-label="Public cloud demo architecture">
+            <div className="cloud-stage">
+              <span className="stage-icon"><StageIcon name="render" /></span>
+              <div><strong>Render</strong><p>Resumable Python simulator</p></div><em>Runs while awake</em>
+            </div>
+            <i className="cloud-arrow" aria-hidden="true">→</i>
+            <div className="cloud-stage">
+              <span className="stage-icon"><StageIcon name="supabase" /></span>
+              <div><strong>Supabase</strong><p>Durable PostgreSQL history</p></div><em>Free-tier guarded</em>
+            </div>
+            <i className="cloud-arrow" aria-hidden="true">→</i>
+            <div className="cloud-stage">
+              <span className="stage-icon"><StageIcon name="dashboard" /></span>
+              <div><strong>Render</strong><p>Recruiter dashboard</p></div><em>Public interface</em>
+            </div>
+            <p className="cloud-boundary"><strong>Intentionally offline here:</strong> Kafka, Spark/Databricks, Delta, dbt, Airflow, and Metabase run in the reproducible local environment—not on the public free tier.</p>
+          </div>
+        )}
       </section>
 
       <section className="operating-modes" aria-labelledby="modes-title">
@@ -630,10 +705,10 @@ export default function Home() {
           </div>
           <div className="mode-grid">
             <article>
-              <span className="mode-label">PRODUCTION REFERENCE</span>
-              <h3>Built for governed scale</h3>
-              <p>Kafka, Databricks, Delta Lake, dbt, PostgreSQL, Metabase, and Airflow implement the complete architecture.</p>
-              <ul><li>Replayable event transport</li><li>Bronze, Silver, and Gold ownership</li><li>Independent orchestration control plane</li></ul>
+              <span className="mode-label">LOCAL FULL STACK</span>
+              <h3>Built to prove the architecture</h3>
+              <p>Docker Compose runs Kafka, Spark, Delta Lake, dbt, PostgreSQL, Metabase, and Airflow. Databricks is packaged as the managed compute option.</p>
+              <ul><li>Verified Bronze → Silver → Gold path</li><li>17 dbt models and 37 passing tests</li><li>Eight Gold tables published to PostgreSQL</li></ul>
             </article>
             <article className="mode-live">
               <span className="mode-label"><i /> PUBLIC DEMO</span>
@@ -681,7 +756,7 @@ export default function Home() {
 
       <footer>
         <a className="brand" href="#top"><span className="brand-mark" aria-hidden="true">EL</span><span className="brand-copy"><strong>E-commerce Lakehouse</strong><small>Built with synthetic data</small></span></a>
-        <p>Render + Supabase public demo · canonical lakehouse architecture in the repository</p>
+        <p>Render + Supabase public demo · full local lakehouse in the repository</p>
         <a href="#top">Back to top ↑</a>
       </footer>
     </main>

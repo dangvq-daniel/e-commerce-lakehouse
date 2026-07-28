@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: silver
     config:
-      enabled: "{{ target.type == 'databricks' }}"
+      enabled: "{{ target.type in ['databricks', 'spark'] }}"
     description: Validated Delta tables produced by Databricks Structured Streaming.
     schema: silver
     tables:

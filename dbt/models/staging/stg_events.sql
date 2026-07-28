@@ -1,4 +1,4 @@
-{% if target.type == 'databricks' %}
+{% if target.type in ['databricks', 'spark'] %}
 
 select
     event_id,

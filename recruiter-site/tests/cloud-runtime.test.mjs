@@ -24,10 +24,12 @@ test("cloud runtime is resumable and backed by PostgreSQL", async () => {
   assert.match(page, /\/api\/analytics/);
   assert.match(page, /durable PostgreSQL history/i);
   assert.match(page, /NEXT BUDGET-SAFE WRITE/);
-  assert.match(page, /Selectable e-commerce lakehouse system graph/);
+  assert.match(page, /Choose architecture environment/);
+  assert.match(page, /StageIcon/);
   assert.match(page, /from: "airflow", to: "databricks", kind: "control"/);
   assert.match(page, /from: "airflow", to: "dbt", kind: "control"/);
-  assert.match(page, /IMMEDIATE CONNECTIONS/);
+  assert.match(page, /CONNECTED TO/);
+  assert.match(page, /Intentionally offline here/);
 });
 
 test("OpenAI hosting is not part of the deployment", async () => {

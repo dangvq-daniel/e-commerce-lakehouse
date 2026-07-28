@@ -6,11 +6,12 @@ The interactive recruiter demo is deployed as a free Render web service backed b
 Supabase PostgreSQL. Its generated events resume whenever Render wakes the application,
 and historical data survives service sleep and redeployment.
 
-An end-to-end streaming analytics reference platform built around Kafka, Databricks,
-Delta Lake, Airflow, dbt, PostgreSQL, and Metabase. It produces related customer and
-commerce events, preserves replayable raw data in Bronze, validates it in Silver,
-builds Delta Gold with dbt, publishes Gold to PostgreSQL, and provisions four business
-dashboards.
+An end-to-end streaming analytics platform with two explicit environments: a
+reproducible local lakehouse and a deliberately small public recruiter demo. The local
+stack runs Kafka, PySpark, Delta Lake, dbt, Airflow, PostgreSQL, and Metabase.
+Databricks notebooks and Asset Bundle jobs provide the managed-cloud execution option.
+The public Render/Supabase surface demonstrates the product without pretending the
+full platform runs continuously on a free tier.
 
 ## Architecture
 
@@ -18,7 +19,7 @@ dashboards.
 flowchart LR
     G["Python Event Simulator"]
     K["Kafka Topics"]
-    DBX["Databricks\nPySpark Structured Streaming"]
+    DBX["PySpark Structured Streaming\nLocal Spark / Databricks"]
     B["Delta Bronze"]
     S["Delta Silver"]
     DBT["dbt\nStaging + Intermediate"]
@@ -40,10 +41,10 @@ flowchart LR
     A --> DBT
 ```
 
-This is the single production architecture. PySpark Structured Streaming owns Bronze
-and Silver, dbt owns staging/intermediate transformations and Delta Gold, PostgreSQL is
-the serving warehouse, and Metabase reads only from PostgreSQL. Airflow coordinates
-Databricks and dbt without becoming a data path.
+This is the full lakehouse architecture. Local Compose supplies open-source Spark;
+Databricks supplies the managed alternative. PySpark owns Bronze and Silver, dbt owns
+staging/intermediate transformations and Delta Gold, PostgreSQL is the serving
+warehouse, and Airflow coordinates compute and dbt without carrying business data.
 
 See [Architecture](docs/architecture.md) for the layer-by-layer design and delivery
 semantics.
@@ -52,12 +53,12 @@ semantics.
 
 - Stateful, seeded event simulation for 10 event types, 2,000 customers, and 400 products
 - Five partitioned Kafka topics on a single-node KRaft broker
-- Idempotent local compatibility sink with manual Kafka offset commits after database commits
+- Local Spark 3.5 and Delta 3.3 execution with build-time-pinned Kafka and PostgreSQL drivers
 - Five Databricks notebooks for Kafka ingestion, Bronze, Silver, Gold publication, and quality checks
 - Databricks Asset Bundle configuration for repeatable workspace deployment
-- Airflow DAG with availability checks, retries, Databricks hooks, dbt execution,
+- Airflow DAG with local Spark or Databricks dispatch, retries, dbt execution,
   warehouse audit logging, and Metabase schema refresh
-- dbt-on-Databricks staging, intermediate metrics, eight Delta Gold facts/dimensions, tests, docs, and an
+- dbt-on-Spark/Databricks staging, intermediate metrics, eight keyed Delta Gold facts/dimensions, tests, docs, and an
   SCD-style customer snapshot
 - Idempotent Metabase bootstrap and 17 saved questions across Executive, Customer,
   Product, and Operations dashboards
@@ -67,9 +68,8 @@ semantics.
 
 Requirements: Docker Desktop with Compose v2 and at least 8 GB available memory.
 
-The Compose stack is a local compatibility harness. It exercises the same contracts,
-dbt models, PostgreSQL serving schema, and dashboards without pretending to replace
-the canonical Databricks Bronze/Silver path.
+The default Compose stack starts the data plane. The orchestration profile adds
+Airflow, Metabase, and automatic dashboard provisioning.
 
 ```powershell
 Copy-Item .env.example .env
@@ -77,12 +77,13 @@ docker compose --profile orchestration up -d --build
 docker compose exec airflow-scheduler airflow dags trigger ecommerce_pipeline_dag
 ```
 
-Allow the simulator to produce events for a minute, then trigger the DAG again if the
-first run started before data arrived. Check the stack with:
+The first DAG run drains the available Kafka backlog, merges Silver and Gold
+idempotently, runs dbt tests, publishes eight Gold tables to PostgreSQL, and refreshes
+Metabase. Check the stack with:
 
 ```powershell
 docker compose ps
-docker compose logs --tail 50 generator event-sink airflow-scheduler
+docker compose logs --tail 50 generator spark-jobs airflow-scheduler
 ```
 
 Local interfaces:
@@ -98,7 +99,7 @@ Defaults are development-only. Change every password and secret before sharing a
 deployment. The Metabase bootstrap creates the warehouse connection and dashboards
 automatically.
 
-To run only the lighter ingestion stack, omit the Airflow profile:
+To run only Kafka, Spark/Delta, PostgreSQL, and the simulator, omit the profile:
 
 ```powershell
 docker compose up -d --build
@@ -120,8 +121,8 @@ production design while running a compact compatibility path for live demonstrat
 - `render.yaml` is the deployment blueprint; `DATABASE_URL` remains a Render secret.
 
 This path demonstrates cold-start recovery and durable analytics within the $5 monthly
-ceiling. Kafka, Databricks, Delta, Airflow, dbt, and Metabase remain implemented and
-documented as the full platform, but they are not kept running on free-tier hosting.
+ceiling. Kafka, Spark/Databricks, Delta, Airflow, dbt, and Metabase are demonstrated by
+the local stack and are intentionally not kept running on free-tier hosting.
 
 ## Verify data and models
 
@@ -132,11 +133,12 @@ docker compose exec postgres psql -U ecommerce -d warehouse -c `
   "select event_type, count(*) from raw.events group by 1 order by 2 desc;"
 ```
 
-Run dbt against the local PostgreSQL compatibility target:
+Run dbt against the local Spark/Delta target:
 
 ```powershell
-docker compose exec airflow-scheduler dbt source freshness --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
-docker compose exec airflow-scheduler dbt build --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
+docker compose exec airflow-scheduler dbt source freshness --target local_spark --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
+docker compose exec airflow-scheduler dbt run --target local_spark --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
+docker compose exec airflow-scheduler dbt test --target local_spark --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
 ```
 
 Run repository tests locally:
@@ -180,6 +182,7 @@ Databricks SQL `DATABRICKS_HTTP_PATH` for production Airflow runs.
 ```text
 generator/              event contracts, behavior model, and Kafka producer
 kafka/topics/           repeatable topic creation
+spark/                   local Structured Streaming, Delta jobs, and Spark Thrift
 databricks/notebooks/   Bronze/Silver streaming, quality, and Gold publication
 databricks/resources/   Databricks Asset Bundle job
 airflow/dags/           orchestration DAG
@@ -202,13 +205,16 @@ tests/                  fast producer/sink unit tests
 - Local Kafka is intentionally single-node and plaintext. It demonstrates behavior,
   not production availability or security.
 
-See the [runbook](docs/runbook.md) for replay, lag, freshness, and recovery procedures,
-and [cloud migration](docs/cloud-migration.md) for AWS and Azure target mappings.
+See [implementation status](docs/implementation-status.md) for the claim-by-claim gap
+analysis and honest résumé wording, the [runbook](docs/runbook.md) for recovery, and
+[cloud migration](docs/cloud-migration.md) for hosted target mappings.
 
 ## Resume description
 
-> Built an end-to-end streaming analytics platform using Apache Kafka, Databricks,
-> PySpark Structured Streaming, Delta Lake, Airflow, and dbt. Designed a
-> Bronze/Silver/Gold lakehouse architecture, automated real-time ETL workflows,
-> implemented data quality validation, and developed analytics dashboards for revenue,
-> customer behavior, and inventory insights.
+> Built a reproducible e-commerce lakehouse with Kafka, PySpark Structured Streaming,
+> Delta Lake, dbt, Airflow, PostgreSQL, and Metabase, routing 10 event types across five
+> topics into replayable Bronze and validated Silver datasets. Developed 17 dbt models
+> and 37 quality tests that materialize four fact and four dimension tables in Delta
+> Gold, then publish curated data to PostgreSQL for 17 BI questions across four
+> dashboards. Packaged equivalent Databricks notebooks and Asset Bundle jobs and
+> deployed a cost-capped Render/Supabase recruiter demo.

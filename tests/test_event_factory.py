@@ -32,3 +32,9 @@ def test_refund_references_an_existing_purchase() -> None:
     assert refund["order_id"] == purchase["order_id"]
     assert refund["product_id"] == purchase["product_id"]
 
+
+def test_refund_without_history_emits_prerequisite_purchase() -> None:
+    event = EventFactory(GeneratorConfig(seed=11)).make("refund")
+
+    assert event["event_type"] == "purchase"
+    assert event["order_id"].startswith("ord_")

@@ -1,12 +1,12 @@
 # Architecture and processing guarantees
 
-## Canonical architecture
+## Full lakehouse architecture
 
 ```mermaid
 flowchart LR
     G["Python Event Simulator"]
     K["Kafka Topics"]
-    DBX["Databricks\nPySpark Structured Streaming"]
+    DBX["PySpark Structured Streaming\nLocal Spark / Databricks"]
     B["Delta Bronze"]
     S["Delta Silver"]
     DBT["dbt\nStaging + Intermediate"]
@@ -28,8 +28,9 @@ flowchart LR
     A --> DBT
 ```
 
-This is the only production data path. Airflow is a control plane: it starts and
-monitors work but does not carry business data.
+The data path is identical across execution environments. Docker Compose uses
+open-source Spark and Delta Lake; the managed deployment uses Databricks. Airflow is a
+control plane: it starts and monitors work but does not carry business data.
 
 ## Layer ownership
 
@@ -37,7 +38,7 @@ monitors work but does not carry business data.
 |---|---|---|
 | Event simulation | Python | Related customer, commerce, refund, product, and inventory events |
 | Ingestion | Kafka | Five partitioned topics and durable consumer offsets |
-| Processing | Databricks PySpark | Structured Streaming execution, checkpoints, validation, quarantine |
+| Processing | Spark or Databricks PySpark | Structured Streaming execution, checkpoints, validation, quarantine |
 | Bronze | Delta Lake | Original JSON, Kafka coordinates, ingestion time, replayability |
 | Silver | Delta Lake | Typed, normalized, deduplicated events and domain tables |
 | Analytics engineering | dbt | Silver staging views, intermediate metrics, tests, lineage, documentation |
@@ -87,12 +88,21 @@ Delta Gold source frame is available.
 | `dim_date` | one calendar date in the observed range |
 | `dim_country` | one normalized country |
 
-## Local compatibility harness
+## Local development environment
 
-Docker Compose can run without Databricks credentials. Its `event-sink` stores the event
-contract in PostgreSQL and the `dev` dbt target builds the same Gold model interface.
-This is a test harness for model and dashboard development, not a second architecture.
-Production always follows the canonical diagram above.
+Docker Compose runs the full path without Databricks credentials. A pinned Spark image
+drains Kafka into Delta Bronze, builds typed Silver tables, and exposes Spark Thrift to
+dbt. The `local_spark` target materializes eight keyed Delta Gold models; a Spark JDBC
+job publishes them to PostgreSQL. Airflow and Metabase are opt-in through the
+`orchestration` profile. The older direct Kafka-to-PostgreSQL sink remains available
+only through the explicit `compatibility` profile.
+
+## Public demo environment
+
+The public demo is a separate product surface: Render resumes a low-rate simulator and
+dashboard, while Supabase stores bounded history. It exposes no Kafka, Delta,
+Databricks, dbt, Airflow, or Metabase runtime and the website labels that distinction
+directly. Its purpose is recruiter accessibility, not architectural equivalence.
 
 ## Security boundaries
 

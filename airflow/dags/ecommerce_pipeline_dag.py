@@ -1,9 +1,4 @@
-"""Orchestrate the E-commerce Lakehouse batch control plane.
-
-Streaming ingestion jobs normally run continuously in Databricks. The optional
-job-ID tasks support bounded/available-now jobs. The local compatibility harness
-uses the PostgreSQL dbt target when Databricks credentials are not configured.
-"""
+"""Orchestrate the local Spark lakehouse or the Databricks deployment."""
 
 from __future__ import annotations
 
@@ -32,18 +27,31 @@ def validate_kafka() -> None:
         LOGGER.info("Kafka endpoint %s is available", server)
 
 
-def run_databricks_job(job_id_variable: str) -> str | int:
+def run_platform_job(local_job: str, job_id_variable: str) -> str | int:
+    if os.getenv("PIPELINE_ENV", "local") == "local":
+        base_url = os.getenv("SPARK_JOBS_URL", "http://spark-jobs:8090").rstrip("/")
+        response = requests.post(
+            f"{base_url}/jobs/{local_job}",
+            timeout=int(os.getenv("SPARK_JOB_TIMEOUT_SECONDS", "1800")),
+        )
+        response.raise_for_status()
+        result = response.json()
+        LOGGER.info("local Spark job %s completed: %s", local_job, result.get("output", ""))
+        return f"local-{local_job}"
+
     job_id = os.getenv(job_id_variable)
     host = os.getenv("DATABRICKS_HOST")
     token = os.getenv("DATABRICKS_TOKEN")
     if not all((job_id, host, token)):
-        LOGGER.info("%s is not configured; using the local processing path", job_id_variable)
-        return "local-mode"
+        raise RuntimeError(
+            f"PIPELINE_ENV is not local but {job_id_variable}, DATABRICKS_HOST, "
+            "or DATABRICKS_TOKEN is missing"
+        )
     return DatabricksJobsClient(host=host, token=token).trigger_and_wait(int(job_id))
 
 
 def run_dbt(*arguments: str) -> None:
-    target = os.getenv("DBT_TARGET", "dev")
+    target = os.getenv("DBT_TARGET", "local_spark")
     command = [
         "dbt",
         *arguments,
@@ -150,14 +158,19 @@ with DAG(
         task_id="validate_kafka_availability", python_callable=validate_kafka
     )
     bronze = PythonOperator(
-        task_id="trigger_databricks_bronze",
-        python_callable=run_databricks_job,
-        op_args=["DATABRICKS_BRONZE_JOB_ID"],
+        task_id="build_delta_bronze",
+        python_callable=run_platform_job,
+        op_args=["bronze", "DATABRICKS_BRONZE_JOB_ID"],
     )
     silver = PythonOperator(
-        task_id="trigger_databricks_silver",
-        python_callable=run_databricks_job,
-        op_args=["DATABRICKS_SILVER_JOB_ID"],
+        task_id="build_delta_silver",
+        python_callable=run_platform_job,
+        op_args=["silver", "DATABRICKS_SILVER_JOB_ID"],
+    )
+    source_freshness = PythonOperator(
+        task_id="validate_silver_freshness",
+        python_callable=run_dbt,
+        op_args=["source", "freshness"],
     )
     dbt_models = PythonOperator(
         task_id="execute_dbt_models", python_callable=run_dbt, op_args=["run"]
@@ -166,14 +179,14 @@ with DAG(
         task_id="execute_dbt_tests", python_callable=run_dbt, op_args=["test"]
     )
     data_quality = PythonOperator(
-        task_id="run_data_quality_checks",
-        python_callable=run_databricks_job,
-        op_args=["DATABRICKS_QUALITY_JOB_ID"],
+        task_id="validate_delta_gold",
+        python_callable=run_platform_job,
+        op_args=["quality", "DATABRICKS_QUALITY_JOB_ID"],
     )
     publish_warehouse = PythonOperator(
-        task_id="publish_delta_gold_to_postgres",
-        python_callable=run_databricks_job,
-        op_args=["DATABRICKS_WAREHOUSE_JOB_ID"],
+        task_id="publish_delta_gold_to_postgresql",
+        python_callable=run_platform_job,
+        op_args=["publish", "DATABRICKS_WAREHOUSE_JOB_ID"],
     )
     audit_warehouse = PythonOperator(
         task_id="audit_warehouse_load", python_callable=record_warehouse_load
@@ -186,6 +199,7 @@ with DAG(
         >> kafka_available
         >> bronze
         >> silver
+        >> source_freshness
         >> dbt_models
         >> dbt_tests
         >> data_quality
