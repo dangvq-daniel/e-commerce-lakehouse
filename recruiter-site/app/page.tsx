@@ -40,6 +40,7 @@ import {
 type RangeKey = "24H" | "7D" | "30D";
 type ArchitectureMode = "local" | "cloud";
 type AnalyticsView = "performance" | "events";
+type EvidenceTab = "summary" | "proof" | "code";
 
 type Snapshot = {
   revenue: string;
@@ -176,7 +177,7 @@ function SectionHeader({
   );
 }
 
-function TechnologyNode({
+function ArchitectureTechnology({
   technology,
   selected,
   onSelect,
@@ -188,9 +189,9 @@ function TechnologyNode({
   return (
     <button
       type="button"
-      className={`technology-node ${selected ? "selected" : ""} ${technology.plane}`}
+      className={`architecture-technology ${selected ? "selected" : ""}`}
       aria-pressed={selected}
-      aria-controls="technology-proof"
+      aria-controls="evidence-inspector"
       onClick={onSelect}
     >
       <span className="node-brands">
@@ -200,7 +201,7 @@ function TechnologyNode({
         <strong>{technology.name}</strong>
         <small>{technology.subtitle}</small>
       </span>
-      <FiChevronRight aria-hidden="true" />
+      <FiArrowRight aria-hidden="true" />
     </button>
   );
 }
@@ -289,10 +290,18 @@ function PostgresProof() {
   );
 }
 
-function TechnologyProof({ technology }: { technology: TechnologyEvidence }) {
+function EvidenceInspector({
+  technology,
+  activeTab,
+  onTabChange,
+}: {
+  technology: TechnologyEvidence;
+  activeTab: EvidenceTab;
+  onTabChange: (tab: EvidenceTab) => void;
+}) {
   return (
-    <article className="technology-proof" id="technology-proof" key={technology.id} aria-live="polite">
-      <div className="proof-heading">
+    <article className="evidence-inspector" id="evidence-inspector" key={technology.id} aria-live="polite">
+      <div className="inspector-heading">
         <div className="proof-brand">
           {technology.brands.map((brand) => <BrandMark key={brand} brand={brand} />)}
         </div>
@@ -301,38 +310,73 @@ function TechnologyProof({ technology }: { technology: TechnologyEvidence }) {
           <h3>{technology.name}</h3>
           <p>{technology.subtitle}</p>
         </div>
-        <a href={technology.sourceHref} target="_blank" rel="noreferrer">
-          View source <FiExternalLink />
-        </a>
       </div>
 
-      <div className="proof-explanation">
-        <div><span>ROLE</span><p>{technology.role}</p></div>
-        <div><span>WHY IT EXISTS</span><p>{technology.why}</p></div>
-      </div>
-
-      <div className="io-flow">
-        <div><span>INPUT</span><strong>{technology.input}</strong></div>
-        <FiArrowRight />
-        <div><span>OUTPUT</span><strong>{technology.output}</strong></div>
-      </div>
-
-      <div className="proof-metrics">
-        {technology.metrics.map((metric) => (
-          <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>
+      <div className="evidence-tabs" role="tablist" aria-label={`${technology.name} evidence`}>
+        {(["summary", "proof", "code"] as EvidenceTab[]).map((tab) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            key={tab}
+            onClick={() => onTabChange(tab)}
+          >
+            {tab === "proof" ? "Run proof" : tab}
+          </button>
         ))}
       </div>
 
-      {technology.id === "kafka" ? <KafkaProof /> : null}
-      {technology.id === "compute" ? <ComputeProof /> : null}
-      {technology.id === "dbt" ? <DbtProof /> : null}
-      {technology.id === "airflow" ? <AirflowProof /> : null}
-      {technology.id === "postgres" ? <PostgresProof /> : null}
+      <div className="inspector-body">
+        {activeTab === "summary" ? (
+          <>
+            <div className="proof-explanation">
+              <div><span>ROLE</span><p>{technology.role}</p></div>
+              <div><span>WHY IT EXISTS</span><p>{technology.why}</p></div>
+            </div>
 
-      <div className="code-artifact">
-        <div><FiCode /><span>{technology.artifactLabel}</span><code>{technology.artifactPath}</code></div>
-        <pre><code>{technology.code}</code></pre>
+            <div className="io-flow">
+              <div><span>INPUT</span><strong>{technology.input}</strong></div>
+              <FiArrowRight />
+              <div><span>OUTPUT</span><strong>{technology.output}</strong></div>
+            </div>
+
+            <div className="proof-metrics">
+              {technology.metrics.map((metric) => (
+                <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {activeTab === "proof" ? (
+          <div className="inspector-proof">
+            {technology.id === "kafka" ? <KafkaProof /> : null}
+            {technology.id === "compute" ? <ComputeProof /> : null}
+            {technology.id === "dbt" ? <DbtProof /> : null}
+            {technology.id === "airflow" ? <AirflowProof /> : null}
+            {technology.id === "postgres" ? <PostgresProof /> : null}
+            {!["kafka", "compute", "dbt", "airflow", "postgres"].includes(technology.id) ? (
+              <div className="artifact-proof">
+                <FiCheck />
+                <span>CAPTURED IMPLEMENTATION</span>
+                <strong>{technology.metrics.map((metric) => `${metric.label}: ${metric.value}`).join(" · ")}</strong>
+                <p>The downloadable evidence file records this output from the verified local run.</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {activeTab === "code" ? (
+          <div className="code-artifact">
+            <div><FiCode /><span>{technology.artifactLabel}</span><code>{technology.artifactPath}</code></div>
+            <pre><code>{technology.code}</code></pre>
+          </div>
+        ) : null}
       </div>
+
+      <a className="inspector-source" href={technology.sourceHref} target="_blank" rel="noreferrer">
+        Open implementation <FiExternalLink />
+      </a>
     </article>
   );
 }
@@ -359,6 +403,7 @@ export default function Home() {
   const [journeyIndex, setJourneyIndex] = useState(0);
   const [selectedTechnology, setSelectedTechnology] = useState<TechnologyId>("kafka");
   const [architectureMode, setArchitectureMode] = useState<ArchitectureMode>("local");
+  const [evidenceTab, setEvidenceTab] = useState<EvidenceTab>("summary");
 
   useEffect(() => {
     let cancelled = false;
@@ -398,8 +443,13 @@ export default function Home() {
     () => technologyEvidence.find((technology) => technology.id === selectedTechnology) ?? technologyEvidence[1],
     [selectedTechnology],
   );
-  const dataNodes = technologyEvidence.filter((technology) => technology.plane === "data");
   const airflow = technologyEvidence.find((technology) => technology.id === "airflow")!;
+  const technologyById = (id: TechnologyId) =>
+    technologyEvidence.find((technology) => technology.id === id)!;
+  const selectTechnology = (id: TechnologyId) => {
+    setSelectedTechnology(id);
+    setEvidenceTab("summary");
+  };
   const storagePercent = runtime
     ? Math.min(100, Math.round((runtime.databaseSizeBytes / runtime.databaseQuotaBytes) * 100))
     : 0;
@@ -426,35 +476,41 @@ export default function Home() {
       <section className="hero section-shell" id="business" aria-labelledby="business-title">
         <div className="hero-copy">
           <div className="live-label"><span className="live-dot" /> Public demo online · full stack verified locally</div>
-          <p className="eyebrow">01 · BUSINESS OVERVIEW</p>
+          <p className="eyebrow">01 · ONE VERIFIED ORDER, END TO END</p>
           <h1 id="business-title">Follow one order through a modern data platform.</h1>
           <p className="hero-lead">
-            A simulated retailer needs trustworthy revenue, customer, product, and inventory decisions while thousands
-            of behavioral and transactional events arrive continuously.
+            See an actual purchase become a governed sales fact, then inspect the code, metrics, and run evidence
+            behind every step.
           </p>
           <div className="hero-actions">
             <a className="button primary" href="#journey">Trace the order <FiArrowRight /></a>
             <a className="button secondary" href="#engineering">Inspect the proof</a>
           </div>
           <dl className="scope-list">
-            <div><dt>10</dt><dd>event types</dd></div>
-            <div><dt>5</dt><dd>Kafka topics</dd></div>
-            <div><dt>17</dt><dd>dbt models</dd></div>
-            <div><dt>37/37</dt><dd>tests passing</dd></div>
+            <div><dt>11,912</dt><dd>raw events captured</dd></div>
+            <div><dt>9,060</dt><dd>validated events</dd></div>
+            <div><dt>928</dt><dd>sales facts published</dd></div>
+            <div><dt>37/37</dt><dd>quality tests passing</dd></div>
           </dl>
         </div>
-        <aside className="business-brief" aria-label="Business problem">
-          <span className="brief-kicker">THE DECISION LOOP</span>
-          <h2>What should teams know right now?</h2>
-          <div className="decision-list">
-            <div><span>Executive</span><strong>Are revenue and orders healthy?</strong></div>
-            <div><span>Product</span><strong>Where does the funnel lose customers?</strong></div>
-            <div><span>Operations</span><strong>Which inventory needs attention?</strong></div>
+        <aside className="order-to-action" aria-label="How one order becomes a business decision">
+          <div className="signal-heading">
+            <span className="brief-kicker">LIVE BUSINESS SIGNAL</span>
+            <span className="verified-badge"><FiCheck /> verified record</span>
           </div>
-          <div className="brief-outcome">
+          <div className="signal-order">
+            <div><span>ORDER</span><code>ord_cc83d8…</code></div>
+            <strong>$7.37</strong>
+            <p>Electronics · Germany · mobile</p>
+          </div>
+          <div className="signal-flow">
+            <div><span>01</span><p><small>EVENT</small><strong>Purchase completed</strong></p></div>
             <FiArrowDown />
-            <p><span>Platform outcome</span><strong>One governed path from event to decision</strong></p>
+            <div><span>02</span><p><small>TRUSTED METRIC</small><strong>+$7.37 net revenue</strong></p></div>
+            <FiArrowDown />
+            <div><span>03</span><p><small>ACTION</small><strong>Revenue and inventory views update</strong></p></div>
           </div>
+          <p className="signal-result"><FiShield /> Every team gets the same answer from one governed path.</p>
         </aside>
       </section>
 
@@ -530,9 +586,36 @@ export default function Home() {
           <SectionHeader
             number="03"
             eyebrow="LAKEHOUSE ENGINEERING"
-            title="The architecture is an evidence index."
-            copy="Every node is selectable. Each panel explains why the technology exists, its input and output, observed metrics, code, and a repository artifact."
+            title="One architecture. Proof on demand."
+            copy="Start with the medallion contract, then select a large platform stage. Its role, observed run proof, and code stay beside the architecture—no page hunting required."
           />
+
+          <div className="medallion-proof top-medallion">
+            <div className="medallion-intro">
+              <FiLayers />
+              <span>DELTA MEDALLION VIEW</span>
+              <h3>Raw event to trusted fact.</h3>
+              <p>Each layer has a distinct contract. Select a layer to inspect its implementation.</p>
+            </div>
+            {evidence.delta.layers.map((layer, index) => {
+              const layerId = (["bronze", "silver", "gold"] as TechnologyId[])[index];
+              return (
+                <button
+                  type="button"
+                  className={selectedTechnology === layerId ? "selected" : ""}
+                  key={layer.name}
+                  onClick={() => selectTechnology(layerId)}
+                >
+                  <span>{`0${index + 1}`}</span>
+                  <div><BrandMark brand="delta" compact /><strong>{layer.name}</strong></div>
+                  <p>{layer.grain}</p>
+                  <pre><code>{layer.sample}</code></pre>
+                  <small>{layer.rows.toLocaleString()} rows in captured run</small>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="evidence-banner">
             <div><FiShield /><span><strong>Verified local run</strong><small>{evidence.airflowRun.runId}</small></span></div>
             <div><FiClock /><span><strong>Completed successfully</strong><small>{evidence.airflowRun.finishedAt}</small></span></div>
@@ -549,53 +632,72 @@ export default function Home() {
           </div>
 
           {architectureMode === "local" ? (
-            <>
-              <div className="architecture-board">
-                <div className="control-plane">
-                  <span className="plane-label">CONTROL PLANE</span>
-                  <TechnologyNode
-                    technology={airflow}
-                    selected={selectedTechnology === airflow.id}
-                    onSelect={() => setSelectedTechnology(airflow.id)}
-                  />
-                  <div className="control-targets"><span>orchestrates Spark</span><span>runs dbt</span><span>publishes + refreshes</span></div>
-                </div>
-                <div className="data-plane">
-                  <span className="plane-label">DATA PLANE · SELECT A NODE</span>
-                  <div className="node-flow">
-                    {dataNodes.map((technology, index) => (
-                      <div className="node-flow-item" key={technology.id}>
-                        <TechnologyNode
-                          technology={technology}
-                          selected={selectedTechnology === technology.id}
-                          onSelect={() => setSelectedTechnology(technology.id)}
-                        />
-                        {index < dataNodes.length - 1 ? <FiArrowRight className="flow-arrow" /> : null}
-                      </div>
-                    ))}
+            <div className="architecture-workspace">
+              <div className="architecture-overview">
+                <div className="architecture-overview-heading">
+                  <div>
+                    <span>FULL LOCAL LAKEHOUSE</span>
+                    <h3>From generated event to business decision</h3>
                   </div>
+                  <p><span className="live-dot" /> Select a stage</p>
                 </div>
-              </div>
-              <TechnologyProof technology={selectedNode} />
 
-              <div className="medallion-proof">
-                <div className="medallion-intro">
-                  <FiLayers />
-                  <span>DELTA MEDALLION VIEW</span>
-                  <h3>Same order, progressively more useful.</h3>
-                  <p>Raw history is never mistaken for a business-ready fact.</p>
-                </div>
-                {evidence.delta.layers.map((layer, index) => (
-                  <article key={layer.name}>
-                    <span>{`0${index + 1}`}</span>
-                    <div><BrandMark brand="delta" compact /><strong>{layer.name}</strong></div>
-                    <p>{layer.grain}</p>
-                    <pre><code>{layer.sample}</code></pre>
-                    <small>{layer.rows.toLocaleString()} rows in captured run</small>
+                <button
+                  type="button"
+                  className={`architecture-control ${selectedTechnology === airflow.id ? "selected" : ""}`}
+                  onClick={() => selectTechnology(airflow.id)}
+                >
+                  <BrandMark brand="airflow" />
+                  <span><small>CONTROL PLANE</small><strong>Airflow orchestrates the complete run</strong></span>
+                  <span className="control-actions">ingest <FiArrowRight /> transform <FiArrowRight /> validate <FiArrowRight /> publish</span>
+                </button>
+                <div className="control-rail"><span>controls Spark</span><span>runs dbt</span><span>publishes Gold</span></div>
+
+                <div className="architecture-flow" aria-label="Data plane architecture">
+                  <article className="architecture-zone">
+                    <span className="zone-step">01 · GENERATE</span>
+                    <ArchitectureTechnology technology={technologyById("simulator")} selected={selectedTechnology === "simulator"} onSelect={() => selectTechnology("simulator")} />
                   </article>
-                ))}
+                  <FiArrowRight className="architecture-arrow" />
+                  <article className="architecture-zone">
+                    <span className="zone-step">02 · STREAM</span>
+                    <ArchitectureTechnology technology={technologyById("kafka")} selected={selectedTechnology === "kafka"} onSelect={() => selectTechnology("kafka")} />
+                  </article>
+                  <FiArrowRight className="architecture-arrow" />
+                  <article className="architecture-zone">
+                    <span className="zone-step">03 · PROCESS</span>
+                    <ArchitectureTechnology technology={technologyById("compute")} selected={selectedTechnology === "compute"} onSelect={() => selectTechnology("compute")} />
+                  </article>
+
+                  <div className="flow-turn"><FiArrowDown /><span>persist + refine</span></div>
+
+                  <article className="architecture-zone lakehouse-zone">
+                    <span className="zone-step">04 · LAKEHOUSE</span>
+                    <div className="lakehouse-stage-list">
+                      {(["bronze", "silver", "gold"] as TechnologyId[]).map((id, index) => (
+                        <button type="button" aria-pressed={selectedTechnology === id} onClick={() => selectTechnology(id)} key={id}>
+                          <BrandMark brand="delta" compact />
+                          <span><strong>{technologyById(id).name.replace("Delta ", "")}</strong><small>{["Raw history", "Validated domains", "Analytics facts"][index]}</small></span>
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+                  <FiArrowRight className="architecture-arrow" />
+                  <article className="architecture-zone">
+                    <span className="zone-step">05 · MODEL</span>
+                    <ArchitectureTechnology technology={technologyById("dbt")} selected={selectedTechnology === "dbt"} onSelect={() => selectTechnology("dbt")} />
+                  </article>
+                  <FiArrowRight className="architecture-arrow" />
+                  <article className="architecture-zone serve-zone">
+                    <span className="zone-step">06 · SERVE</span>
+                    {(["postgres", "metabase"] as TechnologyId[]).map((id) => (
+                      <ArchitectureTechnology key={id} technology={technologyById(id)} selected={selectedTechnology === id} onSelect={() => selectTechnology(id)} />
+                    ))}
+                  </article>
+                </div>
               </div>
-            </>
+              <EvidenceInspector technology={selectedNode} activeTab={evidenceTab} onTabChange={setEvidenceTab} />
+            </div>
           ) : (
             <div className="cloud-proof">
               <div className="cloud-flow">

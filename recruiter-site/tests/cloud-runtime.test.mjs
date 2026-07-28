@@ -28,7 +28,7 @@ test("cloud runtime is resumable and backed by PostgreSQL", async () => {
   assert.match(page, /durable PostgreSQL history/i);
   assert.match(page, /Choose architecture environment/);
   assert.match(page, /Next budget-safe write/i);
-  assert.match(page, /TechnologyProof/);
+  assert.match(page, /EvidenceInspector/);
   assert.match(page, /One order\. Seven transformations/);
   assert.match(platform, /Apache Kafka/);
   assert.match(platform, /Local Spark verified · Databricks packaged/);
