@@ -197,7 +197,6 @@ function ArchitectureTechnology({
       </span>
       <span>
         <strong>{technology.name}</strong>
-        <small>{technology.subtitle}</small>
       </span>
       <FiArrowRight aria-hidden="true" />
     </button>
@@ -330,13 +329,10 @@ function EvidenceInspector({
         ))}
       </div>
 
-      <div className="inspector-body">
+      <div className={`inspector-body ${activeTab}`}>
         {activeTab === "summary" ? (
           <>
-            <div className="proof-explanation">
-              <div><span>ROLE</span><p>{technology.role}</p></div>
-              <div><span>WHY IT EXISTS</span><p>{technology.why}</p></div>
-            </div>
+            <p className="inspector-purpose">{technology.role}</p>
 
             <div className="io-flow">
               <div><span>INPUT</span><strong>{technology.input}</strong></div>
@@ -579,7 +575,7 @@ export default function Home() {
             number="03"
             eyebrow="LAKEHOUSE ENGINEERING"
             title="One architecture. Proof on demand."
-            copy="Start with the medallion contract, then select a large platform stage. Its role, observed run proof, and code stay beside the architecture—no page hunting required."
+            copy="Select a stage to see its role, run proof, and implementation."
           />
 
           <div className="medallion-proof top-medallion">
@@ -627,10 +623,10 @@ export default function Home() {
               <div className="architecture-overview">
                 <div className="architecture-overview-heading">
                   <div>
-                    <span>FULL LOCAL LAKEHOUSE</span>
-                    <h3>From generated event to business decision</h3>
+                    <span>END-TO-END DATA FLOW</span>
+                    <h3>Event → trusted metric → dashboard</h3>
                   </div>
-                  <p><span className="live-dot" /> Select a stage</p>
+                  <p>Select a technology</p>
                 </div>
 
                 <button
@@ -639,10 +635,9 @@ export default function Home() {
                   onClick={() => selectTechnology(airflow.id)}
                 >
                   <BrandMark brand="airflow" />
-                  <span><small>CONTROL PLANE</small><strong>Airflow orchestrates the complete run</strong></span>
-                  <span className="control-actions">ingest <FiArrowRight /> transform <FiArrowRight /> validate <FiArrowRight /> publish</span>
+                  <span><small>CONTROL PLANE</small><strong>Airflow schedules and retries the workflow</strong></span>
                 </button>
-                <div className="control-rail"><span>controls Spark</span><span>runs dbt</span><span>publishes Gold</span></div>
+                <div className="control-rail"><span>controls the data flow below</span></div>
 
                 <div className="architecture-flow" aria-label="Data plane architecture">
                   <article className="architecture-zone">
@@ -660,15 +655,15 @@ export default function Home() {
                     <ArchitectureTechnology technology={technologyById("compute")} selected={selectedTechnology === "compute"} onSelect={() => selectTechnology("compute")} />
                   </article>
 
-                  <div className="flow-turn"><FiArrowDown /><span>persist + refine</span></div>
+                  <div className="flow-turn"><FiArrowDown /></div>
 
                   <article className="architecture-zone lakehouse-zone">
                     <span className="zone-step">04 · LAKEHOUSE</span>
                     <div className="lakehouse-stage-list">
-                      {(["bronze", "silver", "gold"] as TechnologyId[]).map((id, index) => (
+                      {(["bronze", "silver", "gold"] as TechnologyId[]).map((id) => (
                         <button type="button" aria-pressed={selectedTechnology === id} onClick={() => selectTechnology(id)} key={id}>
                           <BrandMark brand="delta" compact />
-                          <span><strong>{technologyById(id).name.replace("Delta ", "")}</strong><small>{["Raw history", "Validated domains", "Analytics facts"][index]}</small></span>
+                          <span><strong>{technologyById(id).name.replace("Delta ", "")}</strong></span>
                         </button>
                       ))}
                     </div>

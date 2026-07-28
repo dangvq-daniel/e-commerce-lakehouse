@@ -211,52 +211,49 @@ h1 { max-width: 740px; margin-bottom: 24px; font-size: clamp(3.4rem, 6vw, 6.4rem
 
 .architecture-workspace { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(350px, .78fr); gap: 16px; align-items: start; }
 .architecture-workspace > * { min-width: 0; }
-.architecture-overview { width: 100%; height: 610px; padding: 20px; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
+.architecture-overview { width: 100%; height: 540px; padding: 20px; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
 .architecture-overview-heading { margin-bottom: 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .architecture-overview-heading > div > span, .zone-step { color: var(--green); font-size: .58rem; font-weight: 900; letter-spacing: .13em; }
 .architecture-overview-heading h3 { margin: 6px 0 0; max-width: 520px; font-size: 1.5rem; line-height: 1.05; letter-spacing: -.04em; }
 .architecture-overview-heading > p { margin: 0; display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .65rem; white-space: nowrap; }
-.architecture-control { width: 100%; min-height: 76px; padding: 12px 16px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; border: 1px solid #bfd0c5; border-radius: 16px; text-align: left; background: #edf5f0; cursor: pointer; transition: border-color .18s, box-shadow .18s; }
+.architecture-control { width: 100%; min-height: 64px; padding: 10px 14px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; border: 1px solid #bfd0c5; border-radius: 16px; text-align: left; background: #edf5f0; cursor: pointer; transition: border-color .18s, box-shadow .18s; }
 .architecture-control:hover, .architecture-control.selected { border-color: var(--green); box-shadow: 0 0 0 3px rgba(12,91,73,.1); }
 .architecture-control > span:nth-child(2) { display: grid; gap: 5px; }
 .architecture-control small { color: var(--green); font-size: .56rem; font-weight: 900; letter-spacing: .11em; }
 .architecture-control strong { font-size: .82rem; }
-.control-actions { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .59rem; }
-.control-actions svg { color: var(--green); }
-.control-rail { height: 38px; margin: 0 28px; display: flex; align-items: center; justify-content: space-around; position: relative; border-left: 1px dashed #9aaca1; border-right: 1px dashed #9aaca1; }
+.control-rail { height: 30px; margin: 0 28px; display: flex; align-items: center; justify-content: center; position: relative; border-left: 1px dashed #9aaca1; border-right: 1px dashed #9aaca1; }
 .control-rail::after { content: ""; position: absolute; left: 0; right: 0; bottom: 11px; border-bottom: 1px dashed #9aaca1; }
 .control-rail span { padding: 3px 7px; position: relative; z-index: 1; color: #718077; background: var(--surface); font-size: .53rem; }
 .architecture-flow { display: grid; grid-template-columns: minmax(0,1fr) 22px minmax(0,1fr) 22px minmax(0,1fr); gap: 8px; align-items: stretch; }
-.architecture-zone { min-width: 0; min-height: 150px; padding: 12px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #d5ddd6; border-radius: 16px; background: #f3f6f1; }
+.architecture-zone { min-width: 0; min-height: 128px; padding: 11px; display: flex; flex-direction: column; gap: 7px; border: 1px solid #d5ddd6; border-radius: 16px; background: #f3f6f1; }
 .architecture-arrow { align-self: center; justify-self: center; color: var(--green); }
 .architecture-technology { width: 100%; flex: 1; min-width: 0; padding: 11px; display: flex; align-items: center; gap: 9px; border: 1px solid transparent; border-radius: 12px; text-align: left; background: white; cursor: pointer; transition: border-color .18s, box-shadow .18s, transform .18s; }
 .architecture-technology:hover { transform: translateY(-1px); border-color: #91aa9d; }
 .architecture-technology.selected { border-color: var(--green); box-shadow: 0 0 0 3px rgba(12,91,73,.1); }
 .architecture-technology > span:nth-child(2) { min-width: 0; display: grid; gap: 5px; }
 .architecture-technology strong { font-size: .78rem; line-height: 1.2; }
-.architecture-technology small { color: var(--muted); font-size: .58rem; line-height: 1.4; }
 .architecture-technology > svg { margin-left: auto; flex: 0 0 auto; color: var(--green); }
-.flow-turn { grid-column: 1 / -1; height: 22px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; color: var(--green); }
-.flow-turn span { color: var(--muted); font-size: .55rem; }
+.flow-turn { grid-column: 1 / -1; height: 16px; display: flex; align-items: center; justify-content: flex-end; color: var(--green); }
 .flow-turn svg { margin-right: 10%; }
 .lakehouse-stage-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; flex: 1; }
 .lakehouse-stage-list button { min-width: 0; padding: 7px; display: flex; flex-direction: column; align-items: flex-start; gap: 7px; border: 1px solid transparent; border-radius: 10px; text-align: left; background: white; cursor: pointer; }
 .lakehouse-stage-list button:hover, .lakehouse-stage-list button[aria-pressed="true"] { border-color: var(--green); background: #edf7f1; }
 .lakehouse-stage-list button > span { display: grid; gap: 2px; }
 .lakehouse-stage-list strong { font-size: .66rem; }
-.lakehouse-stage-list small { color: var(--muted); font-size: .53rem; }
 .serve-zone .architecture-technology { min-height: 54px; }
 .serve-zone .architecture-technology > svg { margin: 0 0 0 auto; flex: 0 0 auto; }
 
-.evidence-inspector { width: 100%; height: 610px; padding: 22px; display: flex; flex-direction: column; position: sticky; top: 96px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 18px 44px rgba(19,45,37,.08); animation: reveal .22s ease-out; }
+.evidence-inspector { width: 100%; height: 540px; padding: 22px; display: flex; flex-direction: column; position: sticky; top: 96px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 18px 44px rgba(19,45,37,.08); animation: reveal .22s ease-out; }
 .inspector-heading { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 13px; }
 .inspector-heading > div:last-child { min-width: 0; }
 .inspector-heading h3 { margin: 6px 0 2px; font-size: 1.4rem; letter-spacing: -.04em; }
 .inspector-heading p { margin: 0; color: var(--muted); font-size: .64rem; }
-.evidence-tabs { margin: 20px 0 14px; padding: 4px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; border-radius: 11px; background: #e8ede7; }
+.evidence-tabs { margin: 16px 0 12px; padding: 4px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; border-radius: 11px; background: #e8ede7; }
 .evidence-tabs button { padding: 9px 6px; border: 0; border-radius: 8px; text-transform: capitalize; background: transparent; cursor: pointer; font-size: .64rem; font-weight: 900; }
 .evidence-tabs button[aria-selected="true"] { color: white; background: var(--green-dark); }
 .inspector-body { min-height: 0; flex: 1; overflow: auto; scrollbar-width: thin; }
+.inspector-body.summary { overflow: hidden; }
+.inspector-purpose { margin: 0 0 14px; padding: 15px; border-radius: 13px; color: #435b53; background: #eef3ee; font-size: .75rem; line-height: 1.55; }
 .evidence-inspector .proof-explanation { margin: 0 0 12px; grid-template-columns: 1fr; gap: 8px; }
 .evidence-inspector .proof-explanation > div, .evidence-inspector .io-flow > div { padding: 13px; }
 .evidence-inspector .proof-explanation p { font-size: .72rem; }
@@ -535,7 +532,7 @@ footer p, footer > a:last-child { margin: 0; color: #88a198; font-size: .68rem; 
   .medallion-proof { grid-template-columns: repeat(3, 1fr); }
   .medallion-intro { grid-column: 1 / -1; }
   .architecture-workspace { grid-template-columns: minmax(0, 1fr); }
-  .evidence-inspector { height: 610px; min-height: 0; position: static; }
+  .evidence-inspector { height: 540px; min-height: 0; position: static; }
   .dag-proof { grid-template-columns: repeat(4, 1fr); }
 }
 
@@ -570,7 +567,6 @@ footer p, footer > a:last-child { margin: 0; color: #88a198; font-size: .68rem; 
   .architecture-overview { height: auto; min-height: auto; padding: 18px; }
   .architecture-overview-heading { align-items: flex-start; flex-direction: column; }
   .architecture-control { grid-template-columns: auto 1fr; }
-  .control-actions { grid-column: 1 / -1; }
   .architecture-flow { grid-template-columns: 1fr; }
   .lakehouse-stage-list { grid-template-columns: 1fr; }
   .architecture-arrow { transform: rotate(90deg); }
