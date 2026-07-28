@@ -69,11 +69,10 @@ type LiveAnalytics = {
 
 type RecentEvent = LiveAnalytics["recentEvents"][number];
 
-const architectureGroups: { step: string; label: string; technologies: TechnologyId[] }[] = [
-  { step: "01", label: "Ingest", technologies: ["simulator", "kafka"] },
-  { step: "02", label: "Refine", technologies: ["compute", "bronze", "silver"] },
-  { step: "03", label: "Model", technologies: ["dbt", "gold"] },
-  { step: "04", label: "Serve", technologies: ["postgres", "metabase"] },
+const architectureLanes: { step: string; label: string; tone: string; technologies: TechnologyId[] }[] = [
+  { step: "01", label: "Ingestion", tone: "ingestion", technologies: ["simulator", "kafka", "compute"] },
+  { step: "02", label: "Lakehouse", tone: "lakehouse", technologies: ["bronze", "silver", "dbt", "gold"] },
+  { step: "03", label: "Serving", tone: "serving", technologies: ["postgres", "metabase"] },
 ];
 
 function signalForEvent(event: RecentEvent) {
@@ -663,8 +662,8 @@ export default function Home() {
           <SectionHeader
             number="03"
             eyebrow="LAKEHOUSE ENGINEERING"
-            title="Four stages. One readable system."
-            copy="Select a technology to inspect its responsibility, run evidence, and source."
+            title="One pipeline, three clear layers."
+            copy="Follow each arrow from the event source to the dashboard. Select any technology to inspect its evidence."
           />
 
           <div className="engineering-summary">
@@ -693,7 +692,7 @@ export default function Home() {
                 <div className="architecture-overview-heading">
                   <div>
                     <span>END-TO-END DATA FLOW</span>
-                    <h3>Ingest, refine, model, serve.</h3>
+                    <h3>Every arrow has one source and one destination.</h3>
                   </div>
                   <p>Choose a technology</p>
                 </div>
@@ -708,18 +707,24 @@ export default function Home() {
                 </button>
 
                 <div className="architecture-flow" aria-label="Data plane architecture">
-                  {architectureGroups.map((group) => (
-                    <article className="architecture-zone" key={group.step}>
-                      <span className="zone-step">{group.step}</span>
-                      <h4>{group.label}</h4>
-                      <div className="zone-technology-list">
-                        {group.technologies.map((id) => (
-                          <ArchitectureTechnology
-                            key={id}
-                            technology={technologyById(id)}
-                            selected={selectedTechnology === id}
-                            onSelect={() => selectTechnology(id)}
-                          />
+                  {architectureLanes.map((lane) => (
+                    <article className={`architecture-lane ${lane.tone}`} key={lane.step}>
+                      <div className="lane-heading">
+                        <span>{lane.step}</span>
+                        <h4>{lane.label}</h4>
+                      </div>
+                      <div className="lane-flow">
+                        {lane.technologies.map((id, index) => (
+                          <div className="lane-node" key={id}>
+                            <ArchitectureTechnology
+                              technology={technologyById(id)}
+                              selected={selectedTechnology === id}
+                              onSelect={() => selectTechnology(id)}
+                            />
+                            {index < lane.technologies.length - 1 ? (
+                              <span className="lane-arrow" aria-hidden="true"><FiArrowRight /></span>
+                            ) : null}
+                          </div>
                         ))}
                       </div>
                     </article>
