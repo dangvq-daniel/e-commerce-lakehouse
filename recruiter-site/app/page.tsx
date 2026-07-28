@@ -69,9 +69,27 @@ type LiveAnalytics = {
 
 type RecentEvent = LiveAnalytics["recentEvents"][number];
 
-const architectureLanes: { step: string; label: string; tone: string; technologies: TechnologyId[] }[] = [
-  { step: "01", label: "Ingestion", tone: "ingestion", technologies: ["simulator", "kafka", "compute"] },
-  { step: "02", label: "Lakehouse", tone: "lakehouse", technologies: ["bronze", "silver", "dbt", "gold"] },
+const architectureLanes: {
+  step: string;
+  label: string;
+  tone: string;
+  technologies: TechnologyId[];
+  bridge?: string;
+}[] = [
+  {
+    step: "01",
+    label: "Ingestion",
+    tone: "ingestion",
+    technologies: ["simulator", "kafka", "compute"],
+    bridge: "Spark writes the event into Delta Bronze",
+  },
+  {
+    step: "02",
+    label: "Lakehouse",
+    tone: "lakehouse",
+    technologies: ["bronze", "silver", "dbt", "gold"],
+    bridge: "Delta Gold publishes the model to PostgreSQL",
+  },
   { step: "03", label: "Serving", tone: "serving", technologies: ["postgres", "metabase"] },
 ];
 
@@ -708,26 +726,34 @@ export default function Home() {
 
                 <div className="architecture-flow" aria-label="Data plane architecture">
                   {architectureLanes.map((lane) => (
-                    <article className={`architecture-lane ${lane.tone}`} key={lane.step}>
-                      <div className="lane-heading">
-                        <span>{lane.step}</span>
-                        <h4>{lane.label}</h4>
-                      </div>
-                      <div className="lane-flow">
-                        {lane.technologies.map((id, index) => (
-                          <div className="lane-node" key={id}>
-                            <ArchitectureTechnology
-                              technology={technologyById(id)}
-                              selected={selectedTechnology === id}
-                              onSelect={() => selectTechnology(id)}
-                            />
-                            {index < lane.technologies.length - 1 ? (
-                              <span className="lane-arrow" aria-hidden="true"><FiArrowRight /></span>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </article>
+                    <div className="lane-block" key={lane.step}>
+                      <article className={`architecture-lane ${lane.tone}`}>
+                        <div className="lane-heading">
+                          <span>{lane.step}</span>
+                          <h4>{lane.label}</h4>
+                        </div>
+                        <div className="lane-flow">
+                          {lane.technologies.map((id, index) => (
+                            <div className="lane-node" key={id}>
+                              <ArchitectureTechnology
+                                technology={technologyById(id)}
+                                selected={selectedTechnology === id}
+                                onSelect={() => selectTechnology(id)}
+                              />
+                              {index < lane.technologies.length - 1 ? (
+                                <span className="lane-arrow" aria-hidden="true"><FiArrowRight /></span>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                      {lane.bridge ? (
+                        <div className="lane-bridge">
+                          <FiArrowDown aria-hidden="true" />
+                          <span>{lane.bridge}</span>
+                        </div>
+                      ) : null}
+                    </div>
                   ))}
                 </div>
               </div>
