@@ -23,7 +23,6 @@ import {
   FiDatabase,
   FiDownload,
   FiExternalLink,
-  FiLayers,
   FiShield,
 } from "react-icons/fi";
 import evidence from "@/public/evidence/verified-local-run.json";
@@ -67,6 +66,90 @@ type LiveAnalytics = {
     writePaused: boolean;
   };
 };
+
+type RecentEvent = LiveAnalytics["recentEvents"][number];
+
+const architectureGroups: { step: string; label: string; technologies: TechnologyId[] }[] = [
+  { step: "01", label: "Ingest", technologies: ["simulator", "kafka"] },
+  { step: "02", label: "Refine", technologies: ["compute", "bronze", "silver"] },
+  { step: "03", label: "Model", technologies: ["dbt", "gold"] },
+  { step: "04", label: "Serve", technologies: ["postgres", "metabase"] },
+];
+
+function signalForEvent(event: RecentEvent) {
+  const profiles: Record<string, { label: string; route: string; action: string }> = {
+    purchase: {
+      label: "Purchase completed",
+      route: "Revenue fact recalculated",
+      action: `${event.value} added to sales views`,
+    },
+    refund: {
+      label: "Refund issued",
+      route: "Net revenue adjusted",
+      action: `${event.value} removed from sales views`,
+    },
+    inventory_update: {
+      label: "Inventory changed",
+      route: "Stock position recalculated",
+      action: "Availability views updated",
+    },
+    product_view: {
+      label: "Product viewed",
+      route: "Demand signal recorded",
+      action: "Product interest views updated",
+    },
+    page_view: {
+      label: "Page viewed",
+      route: "Session activity recorded",
+      action: "Traffic views updated",
+    },
+    add_to_cart: {
+      label: "Item added to cart",
+      route: "Funnel stage advanced",
+      action: "Cart-conversion views updated",
+    },
+    checkout_started: {
+      label: "Checkout started",
+      route: "Checkout intent recorded",
+      action: "Funnel views updated",
+    },
+    session_started: {
+      label: "Session started",
+      route: "Traffic session opened",
+      action: "Active-session views updated",
+    },
+    customer_created: {
+      label: "Customer created",
+      route: "Customer dimension updated",
+      action: "Customer views refreshed",
+    },
+    customer_signup: {
+      label: "Customer signed up",
+      route: "Customer dimension updated",
+      action: "Acquisition views refreshed",
+    },
+    product_review: {
+      label: "Product reviewed",
+      route: "Product engagement recorded",
+      action: "Product feedback views updated",
+    },
+    product_created: {
+      label: "Product created",
+      route: "Product dimension updated",
+      action: "Catalog views refreshed",
+    },
+    price_update: {
+      label: "Product price changed",
+      route: "Product dimension updated",
+      action: "Pricing views refreshed",
+    },
+  };
+  return profiles[event.type] ?? {
+    label: event.type.replaceAll("_", " "),
+    route: "Event validated and published",
+    action: "Relevant business views refreshed",
+  };
+}
 
 const fallbackSnapshots: Record<RangeKey, Snapshot> = {
   "24H": {
@@ -198,7 +281,6 @@ function ArchitectureTechnology({
       <span>
         <strong>{technology.name}</strong>
       </span>
-      <FiArrowRight aria-hidden="true" />
     </button>
   );
 }
@@ -432,6 +514,8 @@ export default function Home() {
 
   const snapshot = liveData?.snapshot ?? fallbackSnapshots[range];
   const recentEvents = liveData?.recentEvents ?? fallbackEvents;
+  const latestEvent = recentEvents[0] ?? fallbackEvents[0];
+  const liveSignal = signalForEvent(latestEvent);
   const runtime = liveData?.runtime;
   const currentJourney = journeyStages[journeyIndex];
   const selectedNode = useMemo(
@@ -483,24 +567,29 @@ export default function Home() {
           </div>
           <p className="hero-proof"><FiCheck /> Verified locally from raw event through published sales fact.</p>
         </div>
-        <aside className="order-to-action" aria-label="How one order becomes a business decision">
+        <aside
+          className="order-to-action"
+          aria-label="Latest live business signal"
+          aria-live="polite"
+          key={`${latestEvent.id}-${latestEvent.time}`}
+        >
           <div className="signal-heading">
             <span className="brief-kicker">LIVE BUSINESS SIGNAL</span>
-            <span className="verified-badge"><FiCheck /> verified record</span>
+            <span className="verified-badge"><span className="live-dot" /> {latestEvent.status}</span>
           </div>
           <div className="signal-order">
-            <div><span>ORDER</span><code>ord_cc83d8…</code></div>
-            <strong>$7.37</strong>
-            <p>Electronics · Germany · mobile</p>
+            <div><span>LATEST EVENT</span><code>{latestEvent.id}</code></div>
+            <strong>{latestEvent.value}</strong>
+            <p>{latestEvent.time} · {latestEvent.type.replaceAll("_", " ")}</p>
           </div>
           <div className="signal-flow">
-            <div><span>01</span><p><small>EVENT</small><strong>Purchase completed</strong></p></div>
+            <div><span>01</span><p><small>EVENT RECEIVED</small><strong>{liveSignal.label}</strong></p></div>
             <FiArrowDown />
-            <div><span>02</span><p><small>TRUSTED METRIC</small><strong>+$7.37 net revenue</strong></p></div>
+            <div><span>02</span><p><small>PIPELINE ACTION</small><strong>{liveSignal.route}</strong></p></div>
             <FiArrowDown />
-            <div><span>03</span><p><small>ACTION</small><strong>Revenue and inventory views update</strong></p></div>
+            <div><span>03</span><p><small>BUSINESS EFFECT</small><strong>{liveSignal.action}</strong></p></div>
           </div>
-          <p className="signal-result"><FiShield /> Every team gets the same answer from one governed path.</p>
+          <p className="signal-result"><FiShield /> Refreshed from durable PostgreSQL event history.</p>
         </aside>
       </section>
 
@@ -574,39 +663,19 @@ export default function Home() {
           <SectionHeader
             number="03"
             eyebrow="LAKEHOUSE ENGINEERING"
-            title="One architecture. Proof on demand."
-            copy="Select a stage to see its role, run proof, and implementation."
+            title="Four stages. One readable system."
+            copy="Select a technology to inspect its responsibility, run evidence, and source."
           />
 
-          <div className="medallion-proof top-medallion">
-            <div className="medallion-intro">
-              <FiLayers />
-              <span>DELTA MEDALLION VIEW</span>
-              <h3>Raw event to trusted fact.</h3>
-              <p>Each layer has a distinct contract. Select a layer to inspect its implementation.</p>
+          <div className="engineering-summary">
+            <div className="engineering-summary-heading">
+              <span className="summary-icon"><FiShield /></span>
+              <div>
+                <span>VERIFIED LOCAL RUN</span>
+                <strong>Every technology links to captured evidence and working code.</strong>
+              </div>
             </div>
-            {evidence.delta.layers.map((layer, index) => {
-              const layerId = (["bronze", "silver", "gold"] as TechnologyId[])[index];
-              return (
-                <button
-                  type="button"
-                  className={selectedTechnology === layerId ? "selected" : ""}
-                  key={layer.name}
-                  onClick={() => selectTechnology(layerId)}
-                >
-                  <span>{`0${index + 1}`}</span>
-                  <div><BrandMark brand="delta" compact /><strong>{layer.name}</strong></div>
-                  <p>{layer.grain}</p>
-                  <pre><code>{layer.sample}</code></pre>
-                  <small>{layer.rows.toLocaleString()} rows in captured run</small>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="evidence-banner">
-            <div><FiShield /><span><strong>Verified local run</strong><small>{evidence.airflowRun.runId}</small></span></div>
-            <a href="/evidence/verified-local-run.json" download><FiDownload /> Download evidence JSON</a>
+            <a href="/evidence/verified-local-run.json" download><FiDownload /> Evidence JSON</a>
           </div>
 
           <div className="environment-tabs" aria-label="Choose architecture environment">
@@ -624,9 +693,9 @@ export default function Home() {
                 <div className="architecture-overview-heading">
                   <div>
                     <span>END-TO-END DATA FLOW</span>
-                    <h3>Event → trusted metric → dashboard</h3>
+                    <h3>Ingest, refine, model, serve.</h3>
                   </div>
-                  <p>Select a technology</p>
+                  <p>Choose a technology</p>
                 </div>
 
                 <button
@@ -637,49 +706,24 @@ export default function Home() {
                   <BrandMark brand="airflow" />
                   <span><small>CONTROL PLANE</small><strong>Airflow schedules and retries the workflow</strong></span>
                 </button>
-                <div className="control-rail"><span>controls the data flow below</span></div>
 
                 <div className="architecture-flow" aria-label="Data plane architecture">
-                  <article className="architecture-zone">
-                    <span className="zone-step">01 · GENERATE</span>
-                    <ArchitectureTechnology technology={technologyById("simulator")} selected={selectedTechnology === "simulator"} onSelect={() => selectTechnology("simulator")} />
-                  </article>
-                  <FiArrowRight className="architecture-arrow" />
-                  <article className="architecture-zone">
-                    <span className="zone-step">02 · STREAM</span>
-                    <ArchitectureTechnology technology={technologyById("kafka")} selected={selectedTechnology === "kafka"} onSelect={() => selectTechnology("kafka")} />
-                  </article>
-                  <FiArrowRight className="architecture-arrow" />
-                  <article className="architecture-zone">
-                    <span className="zone-step">03 · PROCESS</span>
-                    <ArchitectureTechnology technology={technologyById("compute")} selected={selectedTechnology === "compute"} onSelect={() => selectTechnology("compute")} />
-                  </article>
-
-                  <div className="flow-turn"><FiArrowDown /></div>
-
-                  <article className="architecture-zone lakehouse-zone">
-                    <span className="zone-step">04 · LAKEHOUSE</span>
-                    <div className="lakehouse-stage-list">
-                      {(["bronze", "silver", "gold"] as TechnologyId[]).map((id) => (
-                        <button type="button" aria-pressed={selectedTechnology === id} onClick={() => selectTechnology(id)} key={id}>
-                          <BrandMark brand="delta" compact />
-                          <span><strong>{technologyById(id).name.replace("Delta ", "")}</strong></span>
-                        </button>
-                      ))}
-                    </div>
-                  </article>
-                  <FiArrowRight className="architecture-arrow" />
-                  <article className="architecture-zone">
-                    <span className="zone-step">05 · MODEL</span>
-                    <ArchitectureTechnology technology={technologyById("dbt")} selected={selectedTechnology === "dbt"} onSelect={() => selectTechnology("dbt")} />
-                  </article>
-                  <FiArrowRight className="architecture-arrow" />
-                  <article className="architecture-zone serve-zone">
-                    <span className="zone-step">06 · SERVE</span>
-                    {(["postgres", "metabase"] as TechnologyId[]).map((id) => (
-                      <ArchitectureTechnology key={id} technology={technologyById(id)} selected={selectedTechnology === id} onSelect={() => selectTechnology(id)} />
-                    ))}
-                  </article>
+                  {architectureGroups.map((group) => (
+                    <article className="architecture-zone" key={group.step}>
+                      <span className="zone-step">{group.step}</span>
+                      <h4>{group.label}</h4>
+                      <div className="zone-technology-list">
+                        {group.technologies.map((id) => (
+                          <ArchitectureTechnology
+                            key={id}
+                            technology={technologyById(id)}
+                            selected={selectedTechnology === id}
+                            onSelect={() => selectTechnology(id)}
+                          />
+                        ))}
+                      </div>
+                    </article>
+                  ))}
                 </div>
               </div>
               <EvidenceInspector technology={selectedNode} activeTab={evidenceTab} onTabChange={setEvidenceTab} />
@@ -687,11 +731,9 @@ export default function Home() {
           ) : (
             <div className="cloud-proof">
               <div className="cloud-flow">
-                <article><BrandMark brand="render" /><span>Render</span><strong>Resumable event simulator</strong><small>1 budget-safe write / minute</small></article>
-                <FiArrowRight />
-                <article><BrandMark brand="supabase" /><span>Supabase</span><strong>Durable PostgreSQL history</strong><small>{runtime?.totalEvents.toLocaleString() ?? "Live"} stored events</small></article>
-                <FiArrowRight />
-                <article><BrandMark brand="render" /><span>Render</span><strong>Recruiter data product</strong><small>Live analytics + proof artifact</small></article>
+                <article><em>01</em><BrandMark brand="render" /><span>Render</span><strong>Resumable event simulator</strong><small>1 budget-safe write / minute</small></article>
+                <article><em>02</em><BrandMark brand="supabase" /><span>Supabase</span><strong>Durable PostgreSQL history</strong><small>{runtime?.totalEvents.toLocaleString() ?? "Live"} stored events</small></article>
+                <article><em>03</em><BrandMark brand="render" /><span>Render</span><strong>Recruiter data product</strong><small>Live analytics + proof artifact</small></article>
               </div>
               <div className="cloud-boundary">
                 <FiShield />
