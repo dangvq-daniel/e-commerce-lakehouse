@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-28T02:19:47+00:00",
+  "environment": "Docker Compose local lakehouse",
+  "provenance": "Captured from a successful Airflow run and the running Kafka, Spark/Delta, PostgreSQL, and Metabase services.",
+  "airflowRun": {
+    "dagId": "ecommerce_pipeline_dag",
+    "runId": "scheduled__2026-07-28T02:10:00+00:00",
+    "status": "success",
+    "startedAt": "2026-07-28 02:15:00.257535+00",
+    "finishedAt": "2026-07-28 02:17:25.659841+00",
+    "tasks": [
+      {
+        "name": "validate_kafka_availability",
+        "status": "success",
+        "durationSeconds": 0.2
+      },
+      {
+        "name": "build_delta_bronze",
+        "status": "success",
+        "durationSeconds": 14.5
+      },
+      {
+        "name": "build_delta_silver",
+        "status": "success",
+        "durationSeconds": 37.5
+      },
+      {
+        "name": "validate_silver_freshness",
+        "status": "success",
+        "durationSeconds": 3.9
+      },
+      {
+        "name": "execute_dbt_models",
+        "status": "success",
+        "durationSeconds": 24.5
+      },
+      {
+        "name": "execute_dbt_tests",
+        "status": "success",
+        "durationSeconds": 13.8
+      },
+      {
+        "name": "validate_delta_gold",
+        "status": "success",
+        "durationSeconds": 18.9
+      },
+      {
+        "name": "publish_delta_gold_to_postgresql",
+        "status": "success",
+        "durationSeconds": 22.4
+      },
+      {
+        "name": "audit_warehouse_load",
+        "status": "success",
+        "durationSeconds": 0.2
+      },
+      {
+        "name": "refresh_dashboard",
+        "status": "success",
+        "durationSeconds": 0.3
+      }
+    ]
+  },
+  "kafka": {
+    "producer": "Python event simulator",
+    "consumer": "PySpark Structured Streaming Bronze job",
+    "configuredThroughput": "5 events / second",
+    "topics": [
+      {
+        "name": "customer_events",
+        "partitions": 3
+      },
+      {
+        "name": "inventory_events",
+        "partitions": 3
+      },
+      {
+        "name": "product_events",
+        "partitions": 3
+      },
+      {
+        "name": "purchase_events",
+        "partitions": 3
+      },
+      {
+        "name": "refund_events",
+        "partitions": 3
+      }
+    ],
+    "example": {
+      "statement": "purchase event published to purchase_events",
+      "payload": {
+        "event_id": "evt_23b020fa530b31170bb76f376b608492",
+        "event_type": "purchase",
+        "timestamp": "2026-07-28T02:15:04.965907+00:00",
+        "user_id": 757,
+        "session_id": "ses_4279f4a4a2d47c266117db2e10e735f3",
+        "product_id": 153,
+        "category": "electronics",
+        "price": 7.37,
+        "quantity": 1,
+        "order_id": "ord_cc83d8c1bc032a018d449bf3754b97f6",
+        "payment_method": "debit_card",
+        "order_status": "completed"
+      }
+    }
+  },
+  "spark": {
+    "engine": "Apache Spark 3.5.6 with Delta Lake 3.3.2",
+    "execution": "Local Spark verified; equivalent Databricks notebooks and Asset Bundle are packaged in the repository.",
+    "bronzeInputRows": 11912,
+    "silverOutputRows": 9060,
+    "validationYieldPercent": 76.1,
+    "bronzeDurationSeconds": 14.5,
+    "silverDurationSeconds": 37.5
+  },
+  "delta": {
+    "layers": [
+      {
+        "name": "Bronze",
+        "rows": 11912,
+        "grain": "One immutable Kafka envelope",
+        "sample": "{\"event_id\":\"evt_23b020...\",\"event_type\":\"purchase\",\"order_id\":\"ord_cc83d8...\",\"price\":7.37,\"quantity\":1}"
+      },
+      {
+        "name": "Silver",
+        "rows": 9060,
+        "grain": "One validated, deduplicated domain event",
+        "sample": "{\"event_id\":\"evt_23b020...\",\"order_id\":\"ord_cc83d8...\",\"customer_id\":757,\"product_id\":153,\"quantity\":1,\"price\":7.37,\"order_status\":\"completed\"}"
+      },
+      {
+        "name": "Gold",
+        "rows": 928,
+        "grain": "One analytics-ready sales line",
+        "sample": "{\"sale_key\":\"evt_23b020...\",\"order_id\":\"ord_cc83d8...\",\"gross_revenue\":7.37,\"refunded_amount\":0.00,\"net_revenue\":7.37}"
+      }
+    ],
+    "features": [
+      "ACID transaction log",
+      "checkpointed ingestion",
+      "schema-on-write validation",
+      "keyed MERGE publication"
+    ]
+  },
+  "dbt": {
+    "models": 17,
+    "tests": 37,
+    "passingTests": 37,
+    "lineage": [
+      "silver.orders",
+      "stg_orders",
+      "sales_metrics",
+      "dim_customer + dim_product",
+      "fact_sales"
+    ],
+    "generatedSql": "select o.order_line_id as sale_key, c.customer_key, p.product_key, o.gross_amount - coalesce(r.refunded_amount, 0) as net_revenue from stg_orders o ..."
+  },
+  "postgresql": {
+    "schema": "gold",
+    "tables": [
+      {
+        "name": "dim_country",
+        "rows": 5
+      },
+      {
+        "name": "dim_customer",
+        "rows": 1743
+      },
+      {
+        "name": "dim_date",
+        "rows": 1
+      },
+      {
+        "name": "dim_product",
+        "rows": 400
+      },
+      {
+        "name": "fact_inventory",
+        "rows": 430
+      },
+      {
+        "name": "fact_orders",
+        "rows": 928
+      },
+      {
+        "name": "fact_sales",
+        "rows": 928
+      },
+      {
+        "name": "fact_sessions",
+        "rows": 1816
+      }
+    ],
+    "exampleQuery": "select sale_date, sum(net_revenue) as revenue, count(distinct order_id) as orders from gold.fact_sales group by sale_date order by sale_date;"
+  },
+  "metabase": {
+    "dashboards": 4,
+    "questions": 17,
+    "areas": [
+      "Executive",
+      "Customer",
+      "Product",
+      "Operations"
+    ],
+    "source": "PostgreSQL gold schema"
+  }
+}

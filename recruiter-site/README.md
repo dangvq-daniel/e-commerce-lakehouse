@@ -24,6 +24,22 @@ It never truncates the table wholesale. Maintenance rotates only events older th
 retention window or rows beyond the configured cap, and the dashboard reports current
 database usage against the 500 MB Supabase Free quota.
 
+## Architecture evidence
+
+The website separates live cloud telemetry from evidence captured from the full local
+lakehouse. [`public/evidence/verified-local-run.json`](public/evidence/verified-local-run.json)
+stores the successful Airflow run, Kafka topics, Delta row counts, dbt results,
+warehouse tables, and Metabase inventory shown by the technology panels.
+
+Refresh it after a successful local DAG run:
+
+```powershell
+python ..\scripts\capture_portfolio_evidence.py
+```
+
+The capture reads only local Docker services. Databricks remains labeled as a packaged
+execution option until a real workspace run is available.
+
 ## Local verification
 
 ```powershell

@@ -150,6 +150,16 @@ python -m venv .venv
 .\.venv\Scripts\python -m ruff check .
 ```
 
+Capture a recruiter-facing proof artifact after a successful Airflow run:
+
+```powershell
+.\.venv\Scripts\python scripts\capture_portfolio_evidence.py
+```
+
+The generated `recruiter-site/public/evidence/verified-local-run.json` records the
+successful DAG, Kafka topology, Delta layer counts, dbt results, PostgreSQL tables, and
+Metabase inventory used by the interactive architecture evidence panels.
+
 ## Databricks deployment
 
 The notebooks default to continuous `processingTime` triggers. The bundle uses
@@ -190,6 +200,8 @@ dbt/                    SQL models, tests, documentation, and snapshot
 warehouse/              PostgreSQL bootstrap and local-only compatibility sink
 dashboards/             Metabase provisioner, manifest, and native SQL
 docs/                   architecture, contract, runbook, and cloud migration
+recruiter-site/         Render/Supabase data product and captured proof UI
+scripts/                repeatable local evidence capture
 tests/                  fast producer/sink unit tests
 ```
 

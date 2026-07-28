@@ -12,18 +12,18 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(origin),
     title: "E-commerce Lakehouse | Data Engineering Portfolio",
     description:
-      "Explore an interactive recruiter demo of a real-time Kafka, Databricks, Delta Lake, Airflow, dbt, PostgreSQL, and Metabase analytics platform.",
+      "Follow one verified order through Kafka, Spark, Delta Lake, dbt, Airflow, PostgreSQL, and Metabase implementation evidence.",
     openGraph: {
-      title: "E-commerce Lakehouse",
-      description: "From clickstream to decision, in seconds.",
+      title: "E-commerce Lakehouse | Follow One Order",
+      description: "From event to decision—with inspectable data engineering evidence.",
       type: "website",
-      images: [{ url: `${origin}/og.png`, width: 1740, height: 908, alt: "E-commerce Lakehouse data engineering portfolio" }],
+      images: [{ url: `${origin}/og-v2.png`, width: 1693, height: 929, alt: "Follow one order from event to decision through the E-commerce Lakehouse" }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "E-commerce Lakehouse",
-      description: "A production-shaped streaming analytics portfolio project.",
-      images: [`${origin}/og.png`],
+      title: "E-commerce Lakehouse | Follow One Order",
+      description: "From event to decision—with inspectable data engineering evidence.",
+      images: [`${origin}/og-v2.png`],
     },
   };
 }

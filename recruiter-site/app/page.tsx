@@ -1,11 +1,45 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import {
+  SiApacheairflow,
+  SiApachekafka,
+  SiApachespark,
+  SiDatabricks,
+  SiDbt,
+  SiMetabase,
+  SiPostgresql,
+  SiPython,
+  SiRender,
+  SiSupabase,
+} from "react-icons/si";
+import {
+  FiArrowDown,
+  FiArrowRight,
+  FiCheck,
+  FiChevronRight,
+  FiClock,
+  FiCode,
+  FiDatabase,
+  FiDownload,
+  FiExternalLink,
+  FiGitBranch,
+  FiLayers,
+  FiShield,
+} from "react-icons/fi";
+import evidence from "@/public/evidence/verified-local-run.json";
+import {
+  BrandId,
+  journeyStages,
+  technologyEvidence,
+  TechnologyEvidence,
+  TechnologyId,
+} from "@/lib/platform-evidence";
 
 type RangeKey = "24H" | "7D" | "30D";
-type DataView = "performance" | "events";
 type ArchitectureMode = "local" | "cloud";
-type IconName = "airflow" | "python" | "kafka" | "spark" | "bronze" | "silver" | "dbt" | "gold" | "postgres" | "dashboard" | "render" | "supabase";
+type AnalyticsView = "performance" | "events";
 
 type Snapshot = {
   revenue: string;
@@ -25,58 +59,15 @@ type LiveAnalytics = {
     freshnessSeconds: number;
     eventsPerMinute: number;
     totalEvents: number;
-    lastStartedAt: string | null;
-    eventsThisWake: number;
     nextEventInSeconds: number;
     writeCadenceSeconds: number;
-    estimatedMonthlyEvents: number;
     eventCap: number;
     retentionDays: number;
     databaseSizeBytes: number;
     databaseQuotaBytes: number;
-    databaseWriteGuardBytes: number;
     writePaused: boolean;
   };
 };
-
-function friendlyEventType(value: string) {
-  return value.replaceAll("_", " ");
-}
-
-function megabytes(value: number) {
-  return Math.max(0, Math.round(value / 1_000_000));
-}
-
-function StageIcon({ name }: { name: IconName }) {
-  if (name === "airflow") {
-    return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="3" /><circle cx="8" cy="23" r="3" /><circle cx="24" cy="23" r="3" /><path d="M16 10v5M16 15 8 20M16 15l8 5" /></svg>;
-  }
-  if (name === "python") {
-    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m12 9-6 7 6 7M20 9l6 7-6 7M18 6l-4 20" /></svg>;
-  }
-  if (name === "kafka") {
-    return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="3" /><circle cx="8" cy="23" r="3" /><circle cx="24" cy="23" r="3" /><path d="M14 9.5 10 20M18 9.5 22 20M11 23h10" /></svg>;
-  }
-  if (name === "spark") {
-    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m18 4-9 14h7l-2 10 9-15h-7z" /></svg>;
-  }
-  if (name === "dbt") {
-    return <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="6" width="9" height="9" rx="2" /><rect x="18" y="6" width="9" height="9" rx="2" /><rect x="11.5" y="19" width="9" height="9" rx="2" /></svg>;
-  }
-  if (name === "dashboard") {
-    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 26V15M13 26V9M20 26V18M27 26V5" /></svg>;
-  }
-  if (name === "render") {
-    return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 25h16a6 6 0 0 0 1-12 9 9 0 0 0-17-2 7 7 0 0 0 0 14Z" /></svg>;
-  }
-  const medal = name === "bronze" ? "B" : name === "silver" ? "S" : name === "gold" ? "G" : "";
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true">
-      <ellipse cx="16" cy="8" rx="10" ry="4" /><path d="M6 8v16c0 2 4.5 4 10 4s10-2 10-4V8M6 16c0 2 4.5 4 10 4s10-2 10-4" />
-      {medal ? <text x="16" y="13" textAnchor="middle">{medal}</text> : null}
-    </svg>
-  );
-}
 
 const fallbackSnapshots: Record<RangeKey, Snapshot> = {
   "24H": {
@@ -131,631 +122,646 @@ const fallbackEvents = [
   { time: "14:42:16", type: "inventory_update", id: "fb091da4", value: "2 units", status: "processed" },
   { time: "14:42:13", type: "refund", id: "2cc89fe1", value: "$43", status: "validated" },
   { time: "14:42:09", type: "product_view", id: "a170cc26", value: "1 unit", status: "processed" },
-  { time: "14:42:04", type: "add_to_cart", id: "224ecf98", value: "1 unit", status: "processed" },
 ];
 
-const systemNodes = [
-  {
-    id: "airflow",
-    icon: "airflow" as IconName,
-    number: "CTRL",
-    title: "Airflow",
-    subtitle: "Control Plane",
-    group: "Orchestrate",
-    kind: "control",
-    purpose: "Coordinates work without becoming part of the business-data path.",
-    output: "Independent schedules, retries, dependency checks, and operational visibility for Databricks and dbt.",
-  },
-  {
-    id: "simulator",
-    icon: "python" as IconName,
-    number: "01",
-    title: "Python",
-    subtitle: "Event Simulator",
-    group: "Capture",
-    kind: "data",
-    purpose: "Creates realistic customer, order, refund, inventory, and product activity.",
-    output: "Typed synthetic events with related customer, session, product, and order IDs.",
-  },
-  {
-    id: "kafka",
-    icon: "kafka" as IconName,
-    number: "02",
-    title: "Kafka",
-    subtitle: "Topics",
-    group: "Capture",
-    kind: "data",
-    purpose: "Decouples producers from consumers and keeps events replayable.",
-    output: "Five partitioned streams with durable offsets and ordered records per partition.",
-  },
-  {
-    id: "databricks",
-    icon: "spark" as IconName,
-    number: "03",
-    title: "Spark",
-    subtitle: "PySpark / Databricks",
-    group: "Process",
-    kind: "data",
-    purpose: "Processes events continuously with checkpoints, watermarks, and failure recovery.",
-    output: "A governed path into Bronze and validated Silver tables.",
-  },
-  {
-    id: "bronze",
-    icon: "bronze" as IconName,
-    number: "04",
-    title: "Delta",
-    subtitle: "Bronze",
-    group: "Lakehouse",
-    kind: "data",
-    purpose: "Preserves the original event envelope before business transformations.",
-    output: "Immutable, replayable raw history with ingestion and Kafka metadata.",
-  },
-  {
-    id: "silver",
-    icon: "silver" as IconName,
-    number: "05",
-    title: "Delta",
-    subtitle: "Silver",
-    group: "Lakehouse",
-    kind: "data",
-    purpose: "Normalizes schemas, deduplicates records, and separates invalid data.",
-    output: "Trusted domain tables ready for analytics engineering.",
-  },
-  {
-    id: "dbt",
-    icon: "dbt" as IconName,
-    number: "06",
-    title: "dbt",
-    subtitle: "Staging + Intermediate",
-    group: "Model",
-    kind: "data",
-    purpose: "Turns Silver data into documented, tested business definitions.",
-    output: "Reusable staging views, metrics, lineage, and data-quality tests.",
-  },
-  {
-    id: "gold",
-    icon: "gold" as IconName,
-    number: "07",
-    title: "Delta",
-    subtitle: "Gold",
-    group: "Model",
-    kind: "data",
-    purpose: "Publishes business-ready facts and dimensions at explicit grains.",
-    output: "Eight curated models for sales, orders, sessions, inventory, customers, and products.",
-  },
-  {
-    id: "postgres",
-    icon: "postgres" as IconName,
-    number: "08",
-    title: "PostgreSQL",
-    subtitle: "Warehouse",
-    group: "Serve",
-    kind: "data",
-    purpose: "Provides a familiar, low-latency serving layer for business intelligence.",
-    output: "A query-ready copy of Gold isolated from streaming workloads.",
-  },
-  {
-    id: "metabase",
-    icon: "dashboard" as IconName,
-    number: "09",
-    title: "Metabase",
-    subtitle: "Dashboard",
-    group: "Serve",
-    kind: "data",
-    purpose: "Makes governed metrics accessible to executives, product teams, and operations.",
-    output: "Seventeen saved questions across four decision-focused dashboards.",
-  },
-];
+const iconByBrand = {
+  python: SiPython,
+  kafka: SiApachekafka,
+  spark: SiApachespark,
+  databricks: SiDatabricks,
+  dbt: SiDbt,
+  postgres: SiPostgresql,
+  metabase: SiMetabase,
+  airflow: SiApacheairflow,
+  supabase: SiSupabase,
+  render: SiRender,
+} as const;
 
-const systemEdges = [
-  { from: "simulator", to: "kafka", kind: "data", path: "M 139 248 L 200 248" },
-  { from: "kafka", to: "databricks", kind: "data", path: "M 319 248 L 380 248" },
-  { from: "databricks", to: "bronze", kind: "data", path: "M 440 306 L 440 335" },
-  { from: "bronze", to: "silver", kind: "data", path: "M 499 393 L 560 393" },
-  { from: "silver", to: "dbt", kind: "data", path: "M 679 393 L 720 393" },
-  { from: "dbt", to: "gold", kind: "data", path: "M 839 393 L 860 393" },
-  { from: "gold", to: "postgres", kind: "data", path: "M 920 451 C 920 468 780 466 740 480" },
-  { from: "postgres", to: "metabase", kind: "data", path: "M 799 538 L 860 538" },
-  { from: "airflow", to: "databricks", kind: "control", path: "M 640 150 C 640 178 440 158 440 190" },
-  { from: "airflow", to: "dbt", kind: "control", path: "M 640 150 C 640 240 780 245 780 335" },
-];
+function BrandMark({ brand, compact = false }: { brand: BrandId; compact?: boolean }) {
+  if (brand === "delta") {
+    return (
+      <span className={`brand-mark brand-delta ${compact ? "compact" : ""}`} aria-label="Delta Lake">
+        <Image src="/brand/delta-lake-logo.png" alt="" width={36} height={36} />
+      </span>
+    );
+  }
+  const Icon = iconByBrand[brand];
+  return (
+    <span className={`brand-mark brand-${brand} ${compact ? "compact" : ""}`} aria-label={brand}>
+      <Icon aria-hidden="true" />
+    </span>
+  );
+}
 
-const outcomes = [
-  {
-    number: "01",
-    title: "Capture every decision signal",
-    copy: "Clicks, carts, orders, refunds, reviews, and inventory changes share one versioned event contract.",
-  },
-  {
-    number: "02",
-    title: "Make the stream trustworthy",
-    copy: "Raw history remains replayable while validation, deduplication, and quarantine protect downstream metrics.",
-  },
-  {
-    number: "03",
-    title: "Turn events into action",
-    copy: "Tested facts and dimensions answer revenue, customer, product, and operational questions consistently.",
-  },
-];
+function SectionHeader({
+  number,
+  eyebrow,
+  title,
+  copy,
+}: {
+  number: string;
+  eyebrow: string;
+  title: string;
+  copy: string;
+}) {
+  return (
+    <div className="section-header">
+      <span className="chapter-number">{number}</span>
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2>{title}</h2>
+        <p>{copy}</p>
+      </div>
+    </div>
+  );
+}
+
+function TechnologyNode({
+  technology,
+  selected,
+  onSelect,
+}: {
+  technology: TechnologyEvidence;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`technology-node ${selected ? "selected" : ""} ${technology.plane}`}
+      aria-pressed={selected}
+      aria-controls="technology-proof"
+      onClick={onSelect}
+    >
+      <span className="node-brands">
+        {technology.brands.map((brand) => <BrandMark key={brand} brand={brand} compact />)}
+      </span>
+      <span>
+        <strong>{technology.name}</strong>
+        <small>{technology.subtitle}</small>
+      </span>
+      <FiChevronRight aria-hidden="true" />
+    </button>
+  );
+}
+
+function KafkaProof() {
+  return (
+    <div className="proof-special">
+      <div className="topic-list">
+        {evidence.kafka.topics.map((topic) => (
+          <div key={topic.name}>
+            <span className="live-dot" />
+            <strong>{topic.name}</strong>
+            <small>{topic.partitions} partitions</small>
+          </div>
+        ))}
+      </div>
+      <div className="producer-consumer">
+        <span>Python producer</span><FiArrowRight /><strong>purchase_events</strong><FiArrowRight /><span>Spark consumer</span>
+      </div>
+      <pre><code>{JSON.stringify(evidence.kafka.example.payload, null, 2)}</code></pre>
+    </div>
+  );
+}
+
+function ComputeProof() {
+  return (
+    <div className="job-proof">
+      <div className="job-summary">
+        <span>Kafka / Bronze</span><strong>{evidence.spark.bronzeInputRows.toLocaleString()}</strong><small>input rows</small>
+        <FiArrowRight />
+        <span>Validated Silver</span><strong>{evidence.spark.silverOutputRows.toLocaleString()}</strong><small>output rows</small>
+      </div>
+      <div className="execution-bars">
+        <div><span>Bronze ingestion</span><i style={{ width: "35%" }} /><strong>{evidence.spark.bronzeDurationSeconds}s</strong></div>
+        <div><span>Silver transform</span><i style={{ width: "92%" }} /><strong>{evidence.spark.silverDurationSeconds}s</strong></div>
+      </div>
+      <p className="honesty-note"><SiDatabricks /> Databricks notebooks and an Asset Bundle are packaged; this captured run used local Apache Spark.</p>
+    </div>
+  );
+}
+
+function DbtProof() {
+  return (
+    <div className="proof-special">
+      <div className="lineage-track" aria-label="dbt model lineage">
+        {evidence.dbt.lineage.map((model, index) => (
+          <div key={model}>
+            <span>{model}</span>
+            {index < evidence.dbt.lineage.length - 1 ? <FiArrowRight /> : null}
+          </div>
+        ))}
+      </div>
+      <div className="test-score">
+        <span><FiCheck /> dbt test</span>
+        <strong>{evidence.dbt.passingTests} / {evidence.dbt.tests} passing</strong>
+        <i><span style={{ width: `${(evidence.dbt.passingTests / evidence.dbt.tests) * 100}%` }} /></i>
+      </div>
+    </div>
+  );
+}
+
+function AirflowProof() {
+  return (
+    <div className="dag-proof">
+      {evidence.airflowRun.tasks.map((task, index) => (
+        <div key={task.name}>
+          <span className="task-state"><FiCheck /></span>
+          <span><strong>{task.name.replaceAll("_", " ")}</strong><small>{task.durationSeconds}s</small></span>
+          {index < evidence.airflowRun.tasks.length - 1 ? <FiArrowDown className="dag-arrow" /> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PostgresProof() {
+  return (
+    <div className="proof-special">
+      <div className="warehouse-tables">
+        {evidence.postgresql.tables.map((table) => (
+          <div key={table.name}><FiDatabase /><span>{table.name}</span><strong>{table.rows.toLocaleString()}</strong></div>
+        ))}
+      </div>
+      <pre><code>{evidence.postgresql.exampleQuery}</code></pre>
+    </div>
+  );
+}
+
+function TechnologyProof({ technology }: { technology: TechnologyEvidence }) {
+  return (
+    <article className="technology-proof" id="technology-proof" key={technology.id} aria-live="polite">
+      <div className="proof-heading">
+        <div className="proof-brand">
+          {technology.brands.map((brand) => <BrandMark key={brand} brand={brand} />)}
+        </div>
+        <div>
+          <span className="status-pill"><FiCheck /> {technology.status}</span>
+          <h3>{technology.name}</h3>
+          <p>{technology.subtitle}</p>
+        </div>
+        <a href={technology.sourceHref} target="_blank" rel="noreferrer">
+          View source <FiExternalLink />
+        </a>
+      </div>
+
+      <div className="proof-explanation">
+        <div><span>ROLE</span><p>{technology.role}</p></div>
+        <div><span>WHY IT EXISTS</span><p>{technology.why}</p></div>
+      </div>
+
+      <div className="io-flow">
+        <div><span>INPUT</span><strong>{technology.input}</strong></div>
+        <FiArrowRight />
+        <div><span>OUTPUT</span><strong>{technology.output}</strong></div>
+      </div>
+
+      <div className="proof-metrics">
+        {technology.metrics.map((metric) => (
+          <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>
+        ))}
+      </div>
+
+      {technology.id === "kafka" ? <KafkaProof /> : null}
+      {technology.id === "compute" ? <ComputeProof /> : null}
+      {technology.id === "dbt" ? <DbtProof /> : null}
+      {technology.id === "airflow" ? <AirflowProof /> : null}
+      {technology.id === "postgres" ? <PostgresProof /> : null}
+
+      <div className="code-artifact">
+        <div><FiCode /><span>{technology.artifactLabel}</span><code>{technology.artifactPath}</code></div>
+        <pre><code>{technology.code}</code></pre>
+      </div>
+    </article>
+  );
+}
+
+function BarChart({ values, labels }: { values: number[]; labels: string[] }) {
+  const max = Math.max(...values, 1);
+  return (
+    <div className="bar-chart" aria-label="Revenue trend">
+      {values.map((value, index) => (
+        <div key={`${labels[index]}-${index}`}>
+          <i style={{ height: `${Math.max(5, (value / max) * 100)}%` }} />
+          <span>{labels[index]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   const [range, setRange] = useState<RangeKey>("24H");
-  const [dataView, setDataView] = useState<DataView>("performance");
-  const [selectedNodeId, setSelectedNodeId] = useState("simulator");
-  const [architectureMode, setArchitectureMode] = useState<ArchitectureMode>("local");
+  const [analyticsView, setAnalyticsView] = useState<AnalyticsView>("performance");
   const [liveData, setLiveData] = useState<LiveAnalytics | null>(null);
-  const [connectionState, setConnectionState] = useState<"connecting" | "live" | "retrying">("connecting");
   const [secondsUntilNext, setSecondsUntilNext] = useState(60);
+  const [journeyIndex, setJourneyIndex] = useState(0);
+  const [selectedTechnology, setSelectedTechnology] = useState<TechnologyId>("kafka");
+  const [architectureMode, setArchitectureMode] = useState<ArchitectureMode>("local");
 
   useEffect(() => {
-    let active = true;
+    let cancelled = false;
     const load = async () => {
       try {
         const response = await fetch(`/api/analytics?range=${range}`, { cache: "no-store" });
         if (!response.ok) throw new Error(`analytics returned ${response.status}`);
         const next = (await response.json()) as LiveAnalytics;
-        if (active) {
+        if (!cancelled) {
           setLiveData(next);
           setSecondsUntilNext(next.runtime.nextEventInSeconds);
-          setConnectionState("live");
         }
-      } catch (error) {
-        console.warn("Live analytics are not ready", error);
-        if (active) setConnectionState("retrying");
+      } catch {
+        if (!cancelled) setLiveData(null);
       }
     };
-
-    const refreshWhenVisible = () => {
-      if (!document.hidden) void load();
-    };
-
     void load();
-    const timer = window.setInterval(refreshWhenVisible, 10_000);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
+    const refresh = window.setInterval(load, 30_000);
     return () => {
-      active = false;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      cancelled = true;
+      window.clearInterval(refresh);
     };
   }, [range]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const countdown = window.setInterval(() => {
       setSecondsUntilNext((current) => Math.max(0, current - 1));
     }, 1_000);
-    return () => window.clearInterval(timer);
+    return () => window.clearInterval(countdown);
   }, []);
 
   const snapshot = liveData?.snapshot ?? fallbackSnapshots[range];
-  const events = liveData?.recentEvents ?? fallbackEvents;
-  const chart = snapshot.chart.slice(-18);
-  const labels = snapshot.labels.slice(-18);
-  const chartMax = useMemo(() => Math.max(...chart, 1), [chart]);
-  const selectedNode = systemNodes.find((node) => node.id === selectedNodeId) ?? systemNodes[1];
-  const incomingNodes = systemEdges
-    .filter((edge) => edge.to === selectedNode.id)
-    .map((edge) => systemNodes.find((node) => node.id === edge.from))
-    .filter((node): node is (typeof systemNodes)[number] => Boolean(node));
-  const outgoingNodes = systemEdges
-    .filter((edge) => edge.from === selectedNode.id)
-    .map((edge) => systemNodes.find((node) => node.id === edge.to))
-    .filter((node): node is (typeof systemNodes)[number] => Boolean(node));
+  const recentEvents = liveData?.recentEvents ?? fallbackEvents;
   const runtime = liveData?.runtime;
-  const latestEvent = events[0];
-  const streamState = connectionState === "live"
-    ? runtime?.state ?? "waking"
-    : connectionState;
-  const streamLabel = streamState === "streaming"
-    ? "Streaming"
-    : streamState === "paused"
-      ? "Storage guard active"
-      : streamState === "retrying"
-        ? "Reconnecting"
-        : streamState === "waking" ? "Starting stream" : "Connecting";
+  const currentJourney = journeyStages[journeyIndex];
+  const selectedNode = useMemo(
+    () => technologyEvidence.find((technology) => technology.id === selectedTechnology) ?? technologyEvidence[1],
+    [selectedTechnology],
+  );
+  const dataNodes = technologyEvidence.filter((technology) => technology.plane === "data");
+  const airflow = technologyEvidence.find((technology) => technology.id === "airflow")!;
   const storagePercent = runtime
     ? Math.min(100, Math.round((runtime.databaseSizeBytes / runtime.databaseQuotaBytes) * 100))
     : 0;
 
-  const changeRange = (next: RangeKey) => {
-    setConnectionState("connecting");
-    setRange(next);
-  };
-
   return (
     <main id="top">
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="E-commerce Lakehouse home">
-          <span className="brand-mark" aria-hidden="true">EL</span>
-          <span className="brand-copy">
-            <strong>E-commerce Lakehouse</strong>
-            <small>Streaming analytics platform</small>
-          </span>
+        <a className="identity" href="#top" aria-label="E-commerce Lakehouse home">
+          <span>EL</span>
+          <div><strong>E-commerce Lakehouse</strong><small>Data engineering portfolio</small></div>
         </a>
-        <nav aria-label="Primary navigation">
-          <a href="#product">Product</a>
-          <a href="#live">Live data</a>
-          <a href="#architecture">Architecture</a>
-          <a href="#reliability">Reliability</a>
+        <nav aria-label="Portfolio chapters">
+          <a href="#business"><span>01</span> Business</a>
+          <a href="#journey"><span>02</span> Journey</a>
+          <a href="#engineering"><span>03</span> Engineering</a>
+          <a href="#analytics"><span>04</span> Analytics</a>
+          <a href="#reliability"><span>05</span> Reliability</a>
         </nav>
         <a className="source-link" href="https://github.com/dangvq-daniel/e-commerce-lakehouse" target="_blank" rel="noreferrer">
-          View source <span aria-hidden="true">↗</span>
+          Source <FiExternalLink />
         </a>
       </header>
 
-      <section className="hero section-shell" aria-labelledby="hero-title">
+      <section className="hero section-shell" id="business" aria-labelledby="business-title">
         <div className="hero-copy">
-          <div className="live-badge"><i aria-hidden="true" /> Public demo running on Render</div>
-          <p className="eyebrow">REAL-TIME E-COMMERCE ANALYTICS</p>
-          <h1 id="hero-title">From raw customer events to decisions teams can trust.</h1>
-          <p className="hero-lede">
-            A production-shaped data platform that captures commerce activity, improves it through a governed lakehouse,
-            and serves clear revenue, customer, product, and inventory insights.
+          <div className="live-label"><span className="live-dot" /> Public demo online · full stack verified locally</div>
+          <p className="eyebrow">01 · BUSINESS OVERVIEW</p>
+          <h1 id="business-title">Follow one order through a modern data platform.</h1>
+          <p className="hero-lead">
+            A simulated retailer needs trustworthy revenue, customer, product, and inventory decisions while thousands
+            of behavioral and transactional events arrive continuously.
           </p>
           <div className="hero-actions">
-            <a className="button button-primary" href="#live">See live data</a>
-            <a className="button button-secondary" href="#architecture">Understand the system</a>
+            <a className="button primary" href="#journey">Trace the order <FiArrowRight /></a>
+            <a className="button secondary" href="#engineering">Inspect the proof</a>
           </div>
-          <dl className="proof-strip" aria-label="Project scope">
-            <div><dt>10</dt><dd>Event types</dd></div>
-            <div><dt>9</dt><dd>Pipeline stages</dd></div>
-            <div><dt>8</dt><dd>Gold models</dd></div>
-            <div><dt>$0</dt><dd>Demo runtime</dd></div>
+          <dl className="scope-list">
+            <div><dt>10</dt><dd>event types</dd></div>
+            <div><dt>5</dt><dd>Kafka topics</dd></div>
+            <div><dt>17</dt><dd>dbt models</dd></div>
+            <div><dt>37/37</dt><dd>tests passing</dd></div>
           </dl>
         </div>
-
-        <aside className="journey-card" aria-label="How a customer action becomes a business decision">
-          <div className="journey-head">
-            <span>LOCAL PIPELINE WALKTHROUGH</span>
-            <b>Purchase completed</b>
+        <aside className="business-brief" aria-label="Business problem">
+          <span className="brief-kicker">THE DECISION LOOP</span>
+          <h2>What should teams know right now?</h2>
+          <div className="decision-list">
+            <div><span>Executive</span><strong>Are revenue and orders healthy?</strong></div>
+            <div><span>Product</span><strong>Where does the funnel lose customers?</strong></div>
+            <div><span>Operations</span><strong>Which inventory needs attention?</strong></div>
           </div>
-          <ol>
-            <li><span>01</span><div><strong>Capture</strong><p>Python emits a typed purchase event to Kafka.</p></div></li>
-            <li><span>02</span><div><strong>Refine</strong><p>PySpark preserves raw data, then validates and deduplicates it.</p></div></li>
-            <li><span>03</span><div><strong>Model</strong><p>dbt applies tested business logic and updates Gold facts.</p></div></li>
-            <li><span>04</span><div><strong>Decide</strong><p>PostgreSQL and Metabase expose the result to business users.</p></div></li>
-          </ol>
-          <p className="journey-note">Airflow coordinates the work without carrying business data.</p>
+          <div className="brief-outcome">
+            <FiArrowDown />
+            <p><span>Platform outcome</span><strong>One governed path from event to decision</strong></p>
+          </div>
         </aside>
       </section>
 
-      <section className="product section-shell" id="product" aria-labelledby="product-title">
-        <div className="section-intro">
-          <p className="eyebrow">THE PRODUCT</p>
-          <h2 id="product-title">One dependable path from activity to insight.</h2>
-          <p>The platform solves three connected problems so teams do not have to reconcile disconnected pipelines and metrics.</p>
-        </div>
-        <div className="outcome-grid">
-          {outcomes.map((outcome) => (
-            <article key={outcome.number}>
-              <span>{outcome.number}</span>
-              <h3>{outcome.title}</h3>
-              <p>{outcome.copy}</p>
-            </article>
-          ))}
-        </div>
-        <div className="audience-row">
-          <strong>Built for shared understanding</strong>
-          <span>Executives track revenue</span>
-          <span>Product teams study conversion</span>
-          <span>Operations monitor inventory</span>
-          <span>Data teams own quality and replay</span>
+      <section className="business-kpis" aria-label="Live public demo KPIs">
+        <div className="section-shell kpi-strip">
+          <div><span>Net revenue · {range}</span><strong>{snapshot.revenue}</strong><small>Purchases less refunds</small></div>
+          <div><span>Completed orders</span><strong>{snapshot.orders}</strong><small>Transactional demand</small></div>
+          <div><span>Average order</span><strong>{snapshot.aov}</strong><small>Revenue per order</small></div>
+          <div><span>Session conversion</span><strong>{snapshot.conversion}</strong><small>Orders / active sessions</small></div>
+          <div className="stream-kpi">
+            <span>Public demo stream</span>
+            <strong><i className="live-dot" /> {runtime?.state ?? "waking"}</strong>
+            <small>{runtime ? `${runtime.totalEvents.toLocaleString()} durable events` : "Connecting to Supabase"}</small>
+          </div>
         </div>
       </section>
 
-      <section className="live-section" id="live" aria-labelledby="live-title">
+      <section className="journey section-shell" id="journey" aria-labelledby="journey-title">
+        <SectionHeader
+          number="02"
+          eyebrow="DATA JOURNEY"
+          title="One order. Seven transformations. No hand-waving."
+          copy="Select a stage to see what the record looks like, which system owns it, and what proof the implementation leaves behind."
+        />
+        <div className="order-passport">
+          <span>TRACE ID</span><code>evt_23b020fa530b31170bb76f376b608492</code>
+          <span>ORDER</span><code>ord_cc83d8c1bc032a018d449bf3754b97f6</code>
+          <strong>Verified local record</strong>
+        </div>
+        <div className="journey-workspace">
+          <div className="journey-rail" role="tablist" aria-label="Order journey stages">
+            {journeyStages.map((stage, index) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={journeyIndex === index}
+                key={stage.id}
+                onClick={() => setJourneyIndex(index)}
+              >
+                <span>{stage.step}</span>
+                <BrandMark brand={stage.brand} compact />
+                <div><strong>{stage.label}</strong><small>{stage.technology}</small></div>
+                <FiChevronRight />
+              </button>
+            ))}
+          </div>
+          <article className="journey-detail" key={currentJourney.id}>
+            <div className="journey-title-row">
+              <BrandMark brand={currentJourney.brand} />
+              <div><span>STAGE {currentJourney.step}</span><h3>{currentJourney.label}</h3></div>
+            </div>
+            <p>{currentJourney.explanation}</p>
+            <div className="journey-proof"><FiCheck /><span>IMPLEMENTATION FOOTPRINT</span><strong>{currentJourney.proof}</strong></div>
+            <div className="record-window">
+              <div><span /><span /><span /><strong>{currentJourney.technology} output</strong></div>
+              <pre><code>{currentJourney.record}</code></pre>
+            </div>
+            <div className="journey-controls">
+              <span>{journeyIndex + 1} of {journeyStages.length}</span>
+              <button
+                type="button"
+                onClick={() => setJourneyIndex((journeyIndex + 1) % journeyStages.length)}
+              >
+                {journeyIndex === journeyStages.length - 1 ? "Restart journey" : "Next transformation"} <FiArrowRight />
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section className="engineering" id="engineering" aria-labelledby="engineering-title">
         <div className="section-shell">
-          <div className="live-heading">
-            <div>
-              <p className="eyebrow">LIVE PRODUCT DEMO</p>
-              <h2 id="live-title">The data is moving now.</h2>
-              <p>This public path writes slowly while Render is awake. Supabase preserves the history through sleep and redeploys.</p>
-            </div>
-            <div className={`connection-state ${streamState}`} aria-live="polite">
-              <i aria-hidden="true" />
-              <span>{streamLabel}</span>
-            </div>
+          <SectionHeader
+            number="03"
+            eyebrow="LAKEHOUSE ENGINEERING"
+            title="The architecture is an evidence index."
+            copy="Every node is selectable. Each panel explains why the technology exists, its input and output, observed metrics, code, and a repository artifact."
+          />
+          <div className="evidence-banner">
+            <div><FiShield /><span><strong>Verified local run</strong><small>{evidence.airflowRun.runId}</small></span></div>
+            <div><FiClock /><span><strong>Completed successfully</strong><small>{evidence.airflowRun.finishedAt}</small></span></div>
+            <a href="/evidence/verified-local-run.json" download><FiDownload /> Download evidence JSON</a>
           </div>
 
-          <div className="stream-monitor" aria-label="How the current synthetic event reaches storage">
-            <div className="stream-current">
-              <span><i aria-hidden="true" /> Latest persisted event</span>
-              <strong>{friendlyEventType(latestEvent.type)}</strong>
-              <p><code>{latestEvent.id}</code> written at {latestEvent.time}</p>
-            </div>
-            <div className="stream-route">
-              <div className="route-step"><i>1</i><strong>Generate</strong><small>Python</small></div>
-              <div className="route-track" aria-hidden="true"><i key={`generate-${runtime?.totalEvents ?? 0}`} /></div>
-              <div className="route-step"><i>2</i><strong>Validate</strong><small>Contract</small></div>
-              <div className="route-track" aria-hidden="true"><i key={`validate-${runtime?.totalEvents ?? 0}`} /></div>
-              <div className="route-step"><i>3</i><strong>Persist</strong><small>PostgreSQL</small></div>
-            </div>
-            <div className="next-write">
-              <span>NEXT BUDGET-SAFE WRITE</span>
-              <strong>{runtime?.writePaused ? "Paused" : `${secondsUntilNext}s`}</strong>
-              <small>One event per minute</small>
-            </div>
+          <div className="environment-tabs" aria-label="Choose architecture environment">
+            <button type="button" aria-pressed={architectureMode === "local"} onClick={() => setArchitectureMode("local")}>
+              <strong>Full local lakehouse</strong><span>Verified end to end</span>
+            </button>
+            <button type="button" aria-pressed={architectureMode === "cloud"} onClick={() => setArchitectureMode("cloud")}>
+              <strong>Public cloud demo</strong><span>Render + Supabase</span>
+            </button>
           </div>
 
-          <div className="runtime-bar" aria-label="Live runtime status">
-            <div><span>Latest event</span><strong>{runtime ? `${runtime.freshnessSeconds}s ago` : "—"}</strong></div>
-            <div><span>Write cadence</span><strong>{runtime ? `1 / ${runtime.writeCadenceSeconds}s` : "—"}</strong><small>Budget-safe</small></div>
-            <div><span>Stored events</span><strong>{runtime?.totalEvents.toLocaleString() ?? "—"}</strong><small>of {runtime?.eventCap.toLocaleString() ?? "50,000"}</small></div>
-            <div className="storage-budget">
-              <span>Database size</span><strong>{runtime ? `${megabytes(runtime.databaseSizeBytes)} MB` : "—"}</strong>
-              <em className="storage-meter" aria-hidden="true"><i style={{ width: `${storagePercent}%` }} /></em>
-              <small>{storagePercent}% of 500 MB</small>
-            </div>
-            <p>{runtime?.retentionDays ?? 35}-day history · 200 MB write guard</p>
-          </div>
-
-          <div className="analytics-toolbar">
-            <div className="view-tabs" aria-label="Choose analytics view">
-              <button type="button" aria-pressed={dataView === "performance"} onClick={() => setDataView("performance")}>Performance</button>
-              <button type="button" aria-pressed={dataView === "events"} onClick={() => setDataView("events")}>Latest events</button>
-            </div>
-            <div className="range-tabs" aria-label="Choose reporting period">
-              {(Object.keys(fallbackSnapshots) as RangeKey[]).map((item) => (
-                <button key={item} type="button" aria-pressed={range === item} onClick={() => changeRange(item)}>{item}</button>
-              ))}
-            </div>
-          </div>
-
-          <div className="kpi-grid">
-            <article><span>Net revenue</span><strong className="metric-value" key={`revenue-${snapshot.revenue}`}>{snapshot.revenue}</strong><small>Purchases less refunds</small></article>
-            <article><span>Completed orders</span><strong className="metric-value" key={`orders-${snapshot.orders}`}>{snapshot.orders}</strong><small>Purchase events</small></article>
-            <article><span>Average order</span><strong className="metric-value" key={`aov-${snapshot.aov}`}>{snapshot.aov}</strong><small>Net revenue per order</small></article>
-            <article><span>Session conversion</span><strong className="metric-value" key={`conversion-${snapshot.conversion}`}>{snapshot.conversion}</strong><small>Orders per active session</small></article>
-          </div>
-
-          {dataView === "performance" ? (
-            <div className="performance-view">
-              <article className="chart-card">
-                <div className="card-heading">
-                  <div><span>REVENUE OVER TIME</span><h3>{range} sales movement</h3></div>
-                  <small>Live PostgreSQL aggregate</small>
+          {architectureMode === "local" ? (
+            <>
+              <div className="architecture-board">
+                <div className="control-plane">
+                  <span className="plane-label">CONTROL PLANE</span>
+                  <TechnologyNode
+                    technology={airflow}
+                    selected={selectedTechnology === airflow.id}
+                    onSelect={() => setSelectedTechnology(airflow.id)}
+                  />
+                  <div className="control-targets"><span>orchestrates Spark</span><span>runs dbt</span><span>publishes + refreshes</span></div>
                 </div>
-                <div className="bar-chart" aria-label={`Revenue values for ${range}`}>
-                  {chart.map((value, index) => (
-                    <div className="bar-column" key={`${range}-${index}-${value}`}>
-                      <i style={{ height: `${Math.max(4, Math.round((value / chartMax) * 100))}%`, animationDelay: `${index * 30}ms` }} />
-                      <span>{labels[index] && (index === 0 || index === chart.length - 1 || index % 3 === 0) ? labels[index] : ""}</span>
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              <article className="category-card">
-                <div className="card-heading"><div><span>REVENUE MIX</span><h3>Top categories</h3></div></div>
-                <div className="category-list">
-                  {snapshot.categories.map((category, index) => (
-                    <div className="category-item" key={category.name}>
-                      <div><b>{String(index + 1).padStart(2, "0")}</b><strong>{category.name}</strong><span>{category.value}</span></div>
-                      <i><span style={{ width: `${category.share}%` }} /></i>
-                    </div>
-                  ))}
-                </div>
-              </article>
-            </div>
-          ) : (
-            <article className="events-card">
-              <div className="card-heading">
-                <div><span>RECENT ACTIVITY</span><h3>Latest persisted events</h3></div>
-                <small>Refreshes every ten seconds</small>
-              </div>
-              <div className="event-table" role="table" aria-label="Latest synthetic events">
-                <div className="event-row event-header" role="row">
-                  <span role="columnheader">Time</span><span role="columnheader">Event</span><span role="columnheader">ID</span><span role="columnheader">Value</span><span role="columnheader">Status</span>
-                </div>
-                {events.map((event, index) => (
-                  <div className={`event-row ${index === 0 ? "event-row-new" : ""}`} role="row" key={`${event.time}-${event.id}`}>
-                    <span role="cell">{event.time}</span><strong role="cell">{friendlyEventType(event.type)}</strong><code role="cell">{event.id}</code><b role="cell">{event.value}</b><i role="cell">{event.status}</i>
+                <div className="data-plane">
+                  <span className="plane-label">DATA PLANE · SELECT A NODE</span>
+                  <div className="node-flow">
+                    {dataNodes.map((technology, index) => (
+                      <div className="node-flow-item" key={technology.id}>
+                        <TechnologyNode
+                          technology={technology}
+                          selected={selectedTechnology === technology.id}
+                          onSelect={() => setSelectedTechnology(technology.id)}
+                        />
+                        {index < dataNodes.length - 1 ? <FiArrowRight className="flow-arrow" /> : null}
+                      </div>
+                    ))}
                   </div>
+                </div>
+              </div>
+              <TechnologyProof technology={selectedNode} />
+
+              <div className="medallion-proof">
+                <div className="medallion-intro">
+                  <FiLayers />
+                  <span>DELTA MEDALLION VIEW</span>
+                  <h3>Same order, progressively more useful.</h3>
+                  <p>Raw history is never mistaken for a business-ready fact.</p>
+                </div>
+                {evidence.delta.layers.map((layer, index) => (
+                  <article key={layer.name}>
+                    <span>{`0${index + 1}`}</span>
+                    <div><BrandMark brand="delta" compact /><strong>{layer.name}</strong></div>
+                    <p>{layer.grain}</p>
+                    <pre><code>{layer.sample}</code></pre>
+                    <small>{layer.rows.toLocaleString()} rows in captured run</small>
+                  </article>
                 ))}
               </div>
-            </article>
+            </>
+          ) : (
+            <div className="cloud-proof">
+              <div className="cloud-flow">
+                <article><BrandMark brand="render" /><span>Render</span><strong>Resumable event simulator</strong><small>1 budget-safe write / minute</small></article>
+                <FiArrowRight />
+                <article><BrandMark brand="supabase" /><span>Supabase</span><strong>Durable PostgreSQL history</strong><small>{runtime?.totalEvents.toLocaleString() ?? "Live"} stored events</small></article>
+                <FiArrowRight />
+                <article><BrandMark brand="render" /><span>Render</span><strong>Recruiter data product</strong><small>Live analytics + proof artifact</small></article>
+              </div>
+              <div className="cloud-boundary">
+                <FiShield />
+                <div>
+                  <strong>Cost boundary: intentionally not the full architecture</strong>
+                  <p>Kafka, Spark/Databricks, Delta, dbt, Airflow, and Metabase are proven by the captured local run—not falsely represented as free-tier cloud services.</p>
+                </div>
+              </div>
+              <div className="cloud-metrics">
+                <div><span>Write cadence</span><strong>1 / {runtime?.writeCadenceSeconds ?? 60}s</strong></div>
+                <div><span>Retention</span><strong>{runtime?.retentionDays ?? 35} days</strong></div>
+                <div><span>Row guard</span><strong>{runtime?.eventCap.toLocaleString() ?? "50,000"}</strong></div>
+                <div><span>Storage used</span><strong>{storagePercent}%</strong></div>
+              </div>
+            </div>
           )}
         </div>
       </section>
 
-      <section className="architecture section-shell" id="architecture" aria-labelledby="architecture-title">
-        <div className="section-intro architecture-intro">
-          <p className="eyebrow">SYSTEM DESIGN</p>
-          <h2 id="architecture-title">Two environments, no inflated claims.</h2>
-          <p>Explore the verified local lakehouse or the intentionally small public demo. Select any local stage to understand its role.</p>
-        </div>
-
-        <div className="architecture-switch" aria-label="Choose architecture environment">
-          <button type="button" aria-pressed={architectureMode === "local"} onClick={() => setArchitectureMode("local")}>
-            <strong>Local full stack</strong><span>Verified end to end</span>
-          </button>
-          <button type="button" aria-pressed={architectureMode === "cloud"} onClick={() => setArchitectureMode("cloud")}>
-            <strong>Public cloud demo</strong><span>Render + Supabase</span>
-          </button>
-        </div>
-
-        {architectureMode === "local" ? (
-        <>
-        <div className="architecture-map">
-          <div className="map-toolbar">
-            <div>
-              <strong>Full lakehouse</strong>
-              <span>Solid: data · Dashed: orchestration</span>
-            </div>
-            <div className="map-legend" aria-label="Connection legend">
-              <span><i className="legend-data" aria-hidden="true" /> Data</span>
-              <span><i className="legend-control" aria-hidden="true" /> Control</span>
-            </div>
+      <section className="analytics section-shell" id="analytics" aria-labelledby="analytics-title">
+        <SectionHeader
+          number="04"
+          eyebrow="BUSINESS ANALYTICS"
+          title="Curated facts become decisions, not just charts."
+          copy="The public demo reads durable PostgreSQL history. Every view is paired with the business question it answers."
+        />
+        <div className="analytics-toolbar">
+          <div role="group" aria-label="Choose analytics view">
+            <button type="button" aria-pressed={analyticsView === "performance"} onClick={() => setAnalyticsView("performance")}>Performance</button>
+            <button type="button" aria-pressed={analyticsView === "events"} onClick={() => setAnalyticsView("events")}>Latest events</button>
           </div>
+          <div role="group" aria-label="Choose reporting period">
+            {(["24H", "7D", "30D"] as RangeKey[]).map((key) => (
+              <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)}>{key}</button>
+            ))}
+          </div>
+        </div>
 
-          <div className="system-map-canvas" aria-label="Selectable e-commerce lakehouse system graph">
-            <div className="map-lane map-lane-control" aria-hidden="true">
-              <span>CONTROL PLANE</span>
-            </div>
-            <div className="map-lane map-lane-data" aria-hidden="true">
-              <span>DATA PLANE</span>
-            </div>
-
-            <svg className="map-connections" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <marker id="data-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
-                  <path d="M 0 0 L 8 4 L 0 8 z" />
-                </marker>
-                <marker id="control-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
-                  <path d="M 0 0 L 8 4 L 0 8 z" />
-                </marker>
-              </defs>
-              {systemEdges.map((edge) => (
-                <path
-                  key={`${edge.from}-${edge.to}`}
-                  d={edge.path}
-                  className={`${edge.kind}-edge ${edge.from === selectedNode.id || edge.to === selectedNode.id ? "edge-active" : ""}`}
-                  markerEnd={`url(#${edge.kind}-arrow)`}
-                />
-              ))}
-            </svg>
-
-            <div className="system-map-nodes">
-              {systemNodes.map((node) => {
-                const isRelated = systemEdges.some((edge) =>
-                  (edge.from === selectedNode.id && edge.to === node.id)
-                  || (edge.to === selectedNode.id && edge.from === node.id));
-                return (
-                  <button
-                    key={node.id}
-                    type="button"
-                    className={`map-node node-${node.id} ${isRelated ? "is-related" : ""}`}
-                    aria-label={`${node.title}: ${node.subtitle}`}
-                    aria-pressed={selectedNode.id === node.id}
-                    aria-controls="architecture-inspector"
-                    onClick={() => setSelectedNodeId(node.id)}
-                  >
-                    <span className="stage-icon"><StageIcon name={node.icon} /></span>
-                    <span className="map-node-copy"><strong>{node.title}</strong><small>{node.subtitle}</small></span>
-                  </button>
-                );
-              })}
-              <div className="mobile-control-branch" aria-hidden="true">
-                <span>Airflow controls</span>
-                <strong>Spark</strong>
-                <i />
-                <strong>dbt</strong>
+        {analyticsView === "performance" ? (
+          <div className="analytics-grid">
+            <article className="trend-card">
+              <div className="card-heading"><div><span>EXECUTIVE QUESTION</span><h3>Is commercial performance healthy?</h3></div><strong>{snapshot.revenue}</strong></div>
+              <BarChart values={snapshot.chart} labels={snapshot.labels} />
+              <div className="decision-caption"><FiCheck /><p><strong>Decision output</strong> Compare revenue movement with order volume and average order value before investigating category mix.</p></div>
+            </article>
+            <article className="category-card">
+              <div className="card-heading"><div><span>MERCHANDISING QUESTION</span><h3>Which categories drive revenue?</h3></div></div>
+              <div className="category-list">
+                {snapshot.categories.map((category, index) => (
+                  <div key={category.name}>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{category.name}</strong>
+                    <i><span style={{ width: `${category.share}%` }} /></i>
+                    <b>{category.value}</b>
+                  </div>
+                ))}
               </div>
-            </div>
+              <div className="decision-caption"><FiCheck /><p><strong>Decision output</strong> Prioritize stock, campaigns, and product analysis around the highest-value categories.</p></div>
+            </article>
+            <article className="insight-card">
+              <span>FROM GOLD TO ACTION</span>
+              <h3>Three teams, one metric layer.</h3>
+              <div><strong>Sales</strong><p>Track net revenue after refunds.</p></div>
+              <div><strong>Customer</strong><p>Compare new and returning value.</p></div>
+              <div><strong>Operations</strong><p>Connect demand to inventory movement.</p></div>
+            </article>
           </div>
-        </div>
-
-        <div className="node-inspector" id="architecture-inspector" aria-live="polite" key={selectedNode.id}>
-          <div className="inspector-identity">
-            <span>{selectedNode.kind === "control" ? "CONTROL PLANE" : selectedNode.group.toUpperCase()}</span>
-            <h3>{selectedNode.title}</h3>
-            <p>{selectedNode.subtitle}</p>
-          </div>
-          <div className="inspector-purpose">
-            <span>ROLE</span>
-            <strong>{selectedNode.purpose}</strong>
-          </div>
-          <div className="inspector-output">
-            <span>OUTPUT</span>
-            <p>{selectedNode.output}</p>
-          </div>
-          <div className="inspector-links">
-            <span>CONNECTED TO</span>
-            <div>
-              {incomingNodes.map((node) => (
-                <button key={`from-${node.id}`} type="button" onClick={() => setSelectedNodeId(node.id)}>
-                  <i aria-hidden="true">←</i> {node.title}
-                </button>
-              ))}
-              {outgoingNodes.map((node) => (
-                <button key={`to-${node.id}`} type="button" onClick={() => setSelectedNodeId(node.id)}>
-                  {node.title} <i aria-hidden="true">→</i>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        </>
         ) : (
-          <div className="cloud-architecture" aria-label="Public cloud demo architecture">
-            <div className="cloud-stage">
-              <span className="stage-icon"><StageIcon name="render" /></span>
-              <div><strong>Render</strong><p>Resumable Python simulator</p></div><em>Runs while awake</em>
+          <article className="event-table-card">
+            <div className="event-table-heading">
+              <div><span className="live-dot" /><strong>Live PostgreSQL event history</strong></div>
+              <p>Next budget-safe write in <strong>{runtime?.writePaused ? "paused" : `${secondsUntilNext}s`}</strong></p>
             </div>
-            <i className="cloud-arrow" aria-hidden="true">→</i>
-            <div className="cloud-stage">
-              <span className="stage-icon"><StageIcon name="supabase" /></span>
-              <div><strong>Supabase</strong><p>Durable PostgreSQL history</p></div><em>Free-tier guarded</em>
+            <div className="event-table">
+              <div className="event-row table-head"><span>Time</span><span>Event</span><span>Event ID</span><span>Value</span><span>Status</span></div>
+              {recentEvents.map((event) => (
+                <div className="event-row" key={`${event.id}-${event.time}`}>
+                  <code>{event.time}</code><strong>{event.type.replaceAll("_", " ")}</strong><code>{event.id}</code><span>{event.value}</span><em>{event.status}</em>
+                </div>
+              ))}
             </div>
-            <i className="cloud-arrow" aria-hidden="true">→</i>
-            <div className="cloud-stage">
-              <span className="stage-icon"><StageIcon name="dashboard" /></span>
-              <div><strong>Render</strong><p>Recruiter dashboard</p></div><em>Public interface</em>
-            </div>
-            <p className="cloud-boundary"><strong>Intentionally offline here:</strong> Kafka, Spark/Databricks, Delta, dbt, Airflow, and Metabase run in the reproducible local environment—not on the public free tier.</p>
-          </div>
+          </article>
         )}
       </section>
 
-      <section className="operating-modes" aria-labelledby="modes-title">
+      <section className="reliability" id="reliability" aria-labelledby="reliability-title">
         <div className="section-shell">
-          <div className="section-intro">
-            <p className="eyebrow">CLEAR TRADE-OFFS</p>
-            <h2 id="modes-title">One product, two operating modes.</h2>
-            <p>The repository demonstrates the complete platform. The public runtime is deliberately smaller so recruiters can use it within a $5 monthly ceiling.</p>
+          <SectionHeader
+            number="05"
+            eyebrow="ENGINEERING RELIABILITY"
+            title="The happy path is only half the product."
+            copy="Quality gates, replay controls, keyed merges, retries, and run history make the pipeline explainable when something goes wrong."
+          />
+          <div className="run-summary">
+            <div><span className="success-icon"><FiCheck /></span><p><span>LAST CAPTURED RUN</span><strong>{evidence.airflowRun.status}</strong><small>{evidence.airflowRun.runId}</small></p></div>
+            <div><span>Started</span><strong>02:15:00 UTC</strong></div>
+            <div><span>Finished</span><strong>02:17:25 UTC</strong></div>
+            <div><span>Tasks</span><strong>{evidence.airflowRun.tasks.length} / {evidence.airflowRun.tasks.length}</strong></div>
           </div>
-          <div className="mode-grid">
-            <article>
-              <span className="mode-label">LOCAL FULL STACK</span>
-              <h3>Built to prove the architecture</h3>
-              <p>Docker Compose runs Kafka, Spark, Delta Lake, dbt, PostgreSQL, Metabase, and Airflow. Databricks is packaged as the managed compute option.</p>
-              <ul><li>Verified Bronze → Silver → Gold path</li><li>17 dbt models and 37 passing tests</li><li>Eight Gold tables published to PostgreSQL</li></ul>
+          <div className="reliability-layout">
+            <article className="dag-history">
+              <div className="card-heading"><div><span>AIRFLOW EXECUTION HISTORY</span><h3>Every dependency completed.</h3></div><BrandMark brand="airflow" /></div>
+              {evidence.airflowRun.tasks.map((task) => (
+                <div className="history-row" key={task.name}>
+                  <span><FiCheck /></span>
+                  <strong>{task.name.replaceAll("_", " ")}</strong>
+                  <i><span style={{ width: `${Math.max(4, Math.min(100, task.durationSeconds * 2.2))}%` }} /></i>
+                  <code>{task.durationSeconds}s</code>
+                </div>
+              ))}
             </article>
-            <article className="mode-live">
-              <span className="mode-label"><i /> PUBLIC DEMO</span>
-              <h3>Built for reliable access</h3>
-              <p>Render runs the interface and resumable producer. Supabase keeps event history outside Render&apos;s ephemeral filesystem.</p>
-              <ul><li>One event per minute while Render is awake</li><li>50,000-row cap with 35-day rolling retention</li><li>Writes stop automatically at 200 MB</li></ul>
-            </article>
+            <div className="quality-stack">
+              <article>
+                <FiShield />
+                <span>QUALITY GATE</span>
+                <strong>37 / 37 dbt tests</strong>
+                <p>Uniqueness, non-null, accepted-value, and relationship checks protect Gold.</p>
+              </article>
+              <article>
+                <FiGitBranch />
+                <span>REPLAY</span>
+                <strong>Offsets + checkpoints</strong>
+                <p>Bronze remains immutable; a new checkpoint can rebuild corrected downstream state.</p>
+              </article>
+              <article>
+                <FiLayers />
+                <span>IDEMPOTENCY</span>
+                <strong>Keyed Delta MERGE</strong>
+                <p>Repeated runs update matching business keys without duplicating published facts.</p>
+              </article>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <section className="reliability section-shell" id="reliability" aria-labelledby="reliability-title">
-        <div className="section-intro reliability-intro">
-          <p className="eyebrow">ENGINEERING BEYOND THE HAPPY PATH</p>
-          <h2 id="reliability-title">Designed to recover, explain, and prove.</h2>
-          <p>Open a topic to see how the implementation handles real operational concerns.</p>
-        </div>
-        <div className="accordion-list">
-          <details open>
-            <summary><span>01</span><strong>Replay and recovery</strong><i>+</i></summary>
-            <p>Raw events remain immutable. Checkpoints resume normal processing, while a new consumer group and checkpoint enable controlled replay without mutating history.</p>
-          </details>
-          <details>
-            <summary><span>02</span><strong>Data quality</strong><i>+</i></summary>
-            <p>Schema contracts, watermark-based deduplication, quarantine routing, freshness checks, and dbt assertions protect every serving model.</p>
-          </details>
-          <details>
-            <summary><span>03</span><strong>Idempotent publication</strong><i>+</i></summary>
-            <p>Kafka offsets commit only after database writes succeed, event IDs prevent duplicates, and Gold publication replaces serving tables only after a complete source frame is ready.</p>
-          </details>
-          <details>
-            <summary><span>04</span><strong>Cost-aware deployment</strong><i>+</i></summary>
-            <p>The public service accepts Render cold starts and uses an external PostgreSQL lease. A one-minute cadence, bounded retention, and a 200 MB write guard preserve the behavior recruiters need without risking the 500 MB free database quota.</p>
-          </details>
+          <div className="failure-cases">
+            <article><span>01</span><div><strong>Kafka unavailable</strong><p>Availability check fails before compute begins; Airflow retries after two minutes.</p></div></article>
+            <article><span>02</span><div><strong>Malformed payload</strong><p>Silver routes the envelope to quarantine with a reason and keeps raw history intact.</p></div></article>
+            <article><span>03</span><div><strong>Publication interrupted</strong><p>Gold remains durable; the warehouse load can rerun from the same keyed Delta state.</p></div></article>
+          </div>
         </div>
       </section>
 
       <section className="final-cta">
-        <div className="section-shell">
-          <div><p className="eyebrow">EXPLORE THE IMPLEMENTATION</p><h2>Follow every decision into the code.</h2></div>
-          <p>The repository includes event contracts, streaming notebooks, dbt models, Airflow orchestration, dashboard provisioning, tests, and deployment guidance.</p>
-          <a className="button button-primary" href="https://github.com/dangvq-daniel/e-commerce-lakehouse" target="_blank" rel="noreferrer">Open GitHub repository <span aria-hidden="true">↗</span></a>
+        <div>
+          <p className="eyebrow">EXPLORE THE IMPLEMENTATION</p>
+          <h2>The diagrams are now entry points into working code.</h2>
+          <p>Review the captured evidence, follow the repository artifacts, or run the complete lakehouse locally with Docker Compose.</p>
+        </div>
+        <div>
+          <a className="button primary" href="https://github.com/dangvq-daniel/e-commerce-lakehouse" target="_blank" rel="noreferrer">
+            Open repository <FiExternalLink />
+          </a>
+          <a className="button secondary" href="/evidence/verified-local-run.json">
+            Evidence artifact <FiDownload />
+          </a>
         </div>
       </section>
 
       <footer>
-        <a className="brand" href="#top"><span className="brand-mark" aria-hidden="true">EL</span><span className="brand-copy"><strong>E-commerce Lakehouse</strong><small>Built with synthetic data</small></span></a>
+        <a className="identity" href="#top"><span>EL</span><div><strong>E-commerce Lakehouse</strong><small>Synthetic data · documented evidence</small></div></a>
         <p>Render + Supabase public demo · full local lakehouse in the repository</p>
         <a href="#top">Back to top ↑</a>
       </footer>

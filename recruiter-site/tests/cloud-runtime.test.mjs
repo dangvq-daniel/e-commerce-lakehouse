@@ -5,12 +5,15 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("cloud runtime is resumable and backed by PostgreSQL", async () => {
-  const [stream, database, config, page] = await Promise.all([
+  const [stream, database, config, page, platform, evidenceText] = await Promise.all([
     readFile(new URL("lib/event-stream.ts", root), "utf8"),
     readFile(new URL("lib/database.ts", root), "utf8"),
     readFile(new URL("lib/demo-config.ts", root), "utf8"),
     readFile(new URL("app/page.tsx", root), "utf8"),
+    readFile(new URL("lib/platform-evidence.ts", root), "utf8"),
+    readFile(new URL("public/evidence/verified-local-run.json", root), "utf8"),
   ]);
+  const evidence = JSON.parse(evidenceText);
 
   assert.match(stream, /seedHistoryIfNeeded/);
   assert.match(stream, /stream_leases/);
@@ -23,13 +26,17 @@ test("cloud runtime is resumable and backed by PostgreSQL", async () => {
   assert.match(database, /CREATE TABLE IF NOT EXISTS portfolio\.events/);
   assert.match(page, /\/api\/analytics/);
   assert.match(page, /durable PostgreSQL history/i);
-  assert.match(page, /NEXT BUDGET-SAFE WRITE/);
   assert.match(page, /Choose architecture environment/);
-  assert.match(page, /StageIcon/);
-  assert.match(page, /from: "airflow", to: "databricks", kind: "control"/);
-  assert.match(page, /from: "airflow", to: "dbt", kind: "control"/);
-  assert.match(page, /CONNECTED TO/);
-  assert.match(page, /Intentionally offline here/);
+  assert.match(page, /Next budget-safe write/i);
+  assert.match(page, /TechnologyProof/);
+  assert.match(page, /One order\. Seven transformations/);
+  assert.match(platform, /Apache Kafka/);
+  assert.match(platform, /Local Spark verified · Databricks packaged/);
+  assert.match(platform, /staging → intermediate → marts/i);
+  assert.equal(evidence.airflowRun.status, "success");
+  assert.equal(evidence.kafka.topics.length, 5);
+  assert.equal(evidence.dbt.passingTests, evidence.dbt.tests);
+  assert.equal(evidence.postgresql.tables.length, 8);
 });
 
 test("OpenAI hosting is not part of the deployment", async () => {

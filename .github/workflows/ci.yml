@@ -22,8 +22,20 @@ jobs:
       - name: Unit tests
         run: python -m pytest --cov=generator --cov=warehouse --cov-report=term-missing
       - name: Python lint
-        run: python -m ruff check generator warehouse spark tests dashboards/bootstrap_metabase.py airflow/include airflow/dags
+        run: python -m ruff check generator warehouse spark tests scripts dashboards/bootstrap_metabase.py airflow/include airflow/dags
       - name: Compile Python sources
-        run: python -m compileall -q generator warehouse spark dashboards airflow databricks
+        run: python -m compileall -q generator warehouse spark scripts dashboards airflow databricks
       - name: Validate Compose model
         run: docker compose config --quiet
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: recruiter-site/package-lock.json
+      - name: Validate recruiter data product
+        working-directory: recruiter-site
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
