@@ -340,37 +340,23 @@ export const journeyStages = [
   {
     id: "produce",
     step: "01",
-    label: "Order placed",
-    technology: "Python",
-    brand: "python" as BrandId,
-    explanation: "A simulated mobile shopper in Germany completes an electronics purchase.",
-    proof: "Stateful producer created event evt_23b020…",
+    label: "Order becomes an event",
+    technology: "Python → Kafka",
+    brand: "kafka" as BrandId,
+    explanation: "A completed order is encoded once and published to the purchase event stream.",
+    proof: "evt_23b020… published to purchase_events",
     record: `{
   "event_type": "purchase",
   "order_id": "ord_cc83d8...",
-  "customer_id": 757,
   "product_id": 153,
-  "price": 7.37,
-  "quantity": 1
+  "net_amount": 7.37,
+  "topic": "purchase_events"
 }`,
   },
   {
-    id: "publish",
-    step: "02",
-    label: "Event published",
-    technology: "Kafka",
-    brand: "kafka" as BrandId,
-    explanation: "The producer routes the keyed event to purchase_events, one of five three-partition topics.",
-    proof: "Producer → purchase_events → Spark Bronze consumer",
-    record: `topic: purchase_events
-key: evt_23b020fa...
-partitions: 3
-configured rate: 5 events/s`,
-  },
-  {
     id: "bronze",
-    step: "03",
-    label: "Raw history saved",
+    step: "02",
+    label: "Raw event is preserved",
     technology: "Delta Bronze",
     brand: "delta" as BrandId,
     explanation: "Structured Streaming appends the untouched JSON plus Kafka lineage and ingestion time.",
@@ -385,8 +371,8 @@ configured rate: 5 events/s`,
   },
   {
     id: "silver",
-    step: "04",
-    label: "Order validated",
+    step: "03",
+    label: "Order is trusted",
     technology: "Delta Silver",
     brand: "delta" as BrandId,
     explanation: "The event is typed, normalized, checked, and merged once by event_id.",
@@ -402,8 +388,8 @@ configured rate: 5 events/s`,
   },
   {
     id: "model",
-    step: "05",
-    label: "Business fact built",
+    step: "04",
+    label: "Metric is calculated",
     technology: "dbt + Delta Gold",
     brand: "dbt" as BrandId,
     explanation: "dbt resolves customer and product keys, then calculates gross, refunded, and net revenue.",
@@ -417,30 +403,16 @@ configured rate: 5 events/s`,
   },
   {
     id: "serve",
-    step: "06",
-    label: "Warehouse published",
-    technology: "PostgreSQL",
+    step: "05",
+    label: "Decision view updates",
+    technology: "PostgreSQL → dashboard",
     brand: "postgres" as BrandId,
-    explanation: "The Gold model is published into a serving schema built for familiar, low-latency SQL.",
-    proof: "8 tables · 928 fact_sales rows",
+    explanation: "The trusted sales fact is published once and reused by revenue, product, and inventory views.",
+    proof: "Published to fact_sales and surfaced in business views",
     record: `select order_id, net_revenue
 from gold.fact_sales
 where sale_key = 'evt_23b020...';
 
 → ord_cc83d8... | 7.37`,
-  },
-  {
-    id: "decide",
-    step: "07",
-    label: "Decision updated",
-    technology: "Metabase",
-    brand: "metabase" as BrandId,
-    explanation: "The same curated fact contributes to revenue, order, category, product, and customer views.",
-    proof: "17 questions across 4 dashboards",
-    record: `Executive dashboard
-Net revenue      +$7.37
-Completed orders +1
-Category         Electronics
-Country          Germany`,
   },
 ];

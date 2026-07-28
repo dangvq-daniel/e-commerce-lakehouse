@@ -19,12 +19,10 @@ import {
   FiArrowRight,
   FiCheck,
   FiChevronRight,
-  FiClock,
   FiCode,
   FiDatabase,
   FiDownload,
   FiExternalLink,
-  FiGitBranch,
   FiLayers,
   FiShield,
 } from "react-icons/fi";
@@ -264,13 +262,19 @@ function DbtProof() {
 }
 
 function AirflowProof() {
+  const stages = [
+    ["01", "Capture", "Spark writes Bronze + Silver"],
+    ["02", "Model", "dbt builds Gold"],
+    ["03", "Check", "Quality gates must pass"],
+    ["04", "Publish", "PostgreSQL is refreshed"],
+  ];
   return (
-    <div className="dag-proof">
-      {evidence.airflowRun.tasks.map((task, index) => (
-        <div key={task.name}>
+    <div className="simple-dag" aria-label="Airflow pipeline sequence">
+      {stages.map(([step, label, output], index) => (
+        <div key={label}>
           <span className="task-state"><FiCheck /></span>
-          <span><strong>{task.name.replaceAll("_", " ")}</strong><small>{task.durationSeconds}s</small></span>
-          {index < evidence.airflowRun.tasks.length - 1 ? <FiArrowDown className="dag-arrow" /> : null}
+          <span><small>{step}</small><strong>{label}</strong><p>{output}</p></span>
+          {index < stages.length - 1 ? <FiArrowRight className="dag-arrow" /> : null}
         </div>
       ))}
     </div>
@@ -340,11 +344,6 @@ function EvidenceInspector({
               <div><span>OUTPUT</span><strong>{technology.output}</strong></div>
             </div>
 
-            <div className="proof-metrics">
-              {technology.metrics.map((metric) => (
-                <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>
-              ))}
-            </div>
           </>
         ) : null}
 
@@ -486,12 +485,7 @@ export default function Home() {
             <a className="button primary" href="#journey">Trace the order <FiArrowRight /></a>
             <a className="button secondary" href="#engineering">Inspect the proof</a>
           </div>
-          <dl className="scope-list">
-            <div><dt>11,912</dt><dd>raw events captured</dd></div>
-            <div><dt>9,060</dt><dd>validated events</dd></div>
-            <div><dt>928</dt><dd>sales facts published</dd></div>
-            <div><dt>37/37</dt><dd>quality tests passing</dd></div>
-          </dl>
+          <p className="hero-proof"><FiCheck /> Verified locally from raw event through published sales fact.</p>
         </div>
         <aside className="order-to-action" aria-label="How one order becomes a business decision">
           <div className="signal-heading">
@@ -518,8 +512,6 @@ export default function Home() {
         <div className="section-shell kpi-strip">
           <div><span>Net revenue · {range}</span><strong>{snapshot.revenue}</strong><small>Purchases less refunds</small></div>
           <div><span>Completed orders</span><strong>{snapshot.orders}</strong><small>Transactional demand</small></div>
-          <div><span>Average order</span><strong>{snapshot.aov}</strong><small>Revenue per order</small></div>
-          <div><span>Session conversion</span><strong>{snapshot.conversion}</strong><small>Orders / active sessions</small></div>
           <div className="stream-kpi">
             <span>Public demo stream</span>
             <strong><i className="live-dot" /> {runtime?.state ?? "waking"}</strong>
@@ -532,8 +524,8 @@ export default function Home() {
         <SectionHeader
           number="02"
           eyebrow="DATA JOURNEY"
-          title="One order. Seven transformations. No hand-waving."
-          copy="Select a stage to see what the record looks like, which system owns it, and what proof the implementation leaves behind."
+          title="One order. Five understandable steps."
+          copy="Move from the customer action to the business decision. Each step shows only the record, owner, and proof needed to understand the change."
         />
         <div className="order-passport">
           <span>TRACE ID</span><code>evt_23b020fa530b31170bb76f376b608492</code>
@@ -618,7 +610,6 @@ export default function Home() {
 
           <div className="evidence-banner">
             <div><FiShield /><span><strong>Verified local run</strong><small>{evidence.airflowRun.runId}</small></span></div>
-            <div><FiClock /><span><strong>Completed successfully</strong><small>{evidence.airflowRun.finishedAt}</small></span></div>
             <a href="/evidence/verified-local-run.json" download><FiDownload /> Download evidence JSON</a>
           </div>
 
@@ -716,8 +707,6 @@ export default function Home() {
               </div>
               <div className="cloud-metrics">
                 <div><span>Write cadence</span><strong>1 / {runtime?.writeCadenceSeconds ?? 60}s</strong></div>
-                <div><span>Retention</span><strong>{runtime?.retentionDays ?? 35} days</strong></div>
-                <div><span>Row guard</span><strong>{runtime?.eventCap.toLocaleString() ?? "50,000"}</strong></div>
                 <div><span>Storage used</span><strong>{storagePercent}%</strong></div>
               </div>
             </div>
@@ -765,13 +754,6 @@ export default function Home() {
               </div>
               <div className="decision-caption"><FiCheck /><p><strong>Decision output</strong> Prioritize stock, campaigns, and product analysis around the highest-value categories.</p></div>
             </article>
-            <article className="insight-card">
-              <span>FROM GOLD TO ACTION</span>
-              <h3>Three teams, one metric layer.</h3>
-              <div><strong>Sales</strong><p>Track net revenue after refunds.</p></div>
-              <div><strong>Customer</strong><p>Compare new and returning value.</p></div>
-              <div><strong>Operations</strong><p>Connect demand to inventory movement.</p></div>
-            </article>
           </div>
         ) : (
           <article className="event-table-card">
@@ -796,52 +778,40 @@ export default function Home() {
           <SectionHeader
             number="05"
             eyebrow="ENGINEERING RELIABILITY"
-            title="The happy path is only half the product."
-            copy="Quality gates, replay controls, keyed merges, retries, and run history make the pipeline explainable when something goes wrong."
+            title="One DAG, four responsibilities."
+            copy="Airflow coordinates the work; it does not transform the data. Read the run from left to right, then see the two recovery paths that protect the result."
           />
-          <div className="run-summary">
-            <div><span className="success-icon"><FiCheck /></span><p><span>LAST CAPTURED RUN</span><strong>{evidence.airflowRun.status}</strong><small>{evidence.airflowRun.runId}</small></p></div>
-            <div><span>Started</span><strong>02:15:00 UTC</strong></div>
-            <div><span>Finished</span><strong>02:17:25 UTC</strong></div>
-            <div><span>Tasks</span><strong>{evidence.airflowRun.tasks.length} / {evidence.airflowRun.tasks.length}</strong></div>
-          </div>
-          <div className="reliability-layout">
-            <article className="dag-history">
-              <div className="card-heading"><div><span>AIRFLOW EXECUTION HISTORY</span><h3>Every dependency completed.</h3></div><BrandMark brand="airflow" /></div>
-              {evidence.airflowRun.tasks.map((task) => (
-                <div className="history-row" key={task.name}>
-                  <span><FiCheck /></span>
-                  <strong>{task.name.replaceAll("_", " ")}</strong>
-                  <i><span style={{ width: `${Math.max(4, Math.min(100, task.durationSeconds * 2.2))}%` }} /></i>
-                  <code>{task.durationSeconds}s</code>
-                </div>
+          <div className="dag-story">
+            <div className="dag-story-heading">
+              <div><BrandMark brand="airflow" /><span><small>LAST VERIFIED RUN</small><strong>Completed successfully</strong></span></div>
+              <p>Airflow controls order and retries. Spark and dbt perform the work.</p>
+            </div>
+            <div className="dag-sequence" aria-label="Airflow DAG">
+              {[
+                ["01", "Capture", "Kafka → Bronze and Silver"],
+                ["02", "Model", "Silver → dbt → Gold"],
+                ["03", "Validate", "Quality checks approve Gold"],
+                ["04", "Publish", "Gold → PostgreSQL"],
+              ].map(([step, label, output], index) => (
+                <article key={label}>
+                  <span>{step}</span>
+                  <div><i><FiCheck /></i><strong>{label}</strong><p>{output}</p></div>
+                  {index < 3 ? <FiArrowRight /> : null}
+                </article>
               ))}
-            </article>
-            <div className="quality-stack">
-              <article>
-                <FiShield />
-                <span>QUALITY GATE</span>
-                <strong>37 / 37 dbt tests</strong>
-                <p>Uniqueness, non-null, accepted-value, and relationship checks protect Gold.</p>
-              </article>
-              <article>
-                <FiGitBranch />
-                <span>REPLAY</span>
-                <strong>Offsets + checkpoints</strong>
-                <p>Bronze remains immutable; a new checkpoint can rebuild corrected downstream state.</p>
-              </article>
-              <article>
-                <FiLayers />
-                <span>IDEMPOTENCY</span>
-                <strong>Keyed Delta MERGE</strong>
-                <p>Repeated runs update matching business keys without duplicating published facts.</p>
-              </article>
             </div>
           </div>
-          <div className="failure-cases">
-            <article><span>01</span><div><strong>Kafka unavailable</strong><p>Availability check fails before compute begins; Airflow retries after two minutes.</p></div></article>
-            <article><span>02</span><div><strong>Malformed payload</strong><p>Silver routes the envelope to quarantine with a reason and keeps raw history intact.</p></div></article>
-            <article><span>03</span><div><strong>Publication interrupted</strong><p>Gold remains durable; the warehouse load can rerun from the same keyed Delta state.</p></div></article>
+          <div className="recovery-paths">
+            <article>
+              <span>IF DATA IS INVALID</span>
+              <strong>Quarantine it, keep Bronze intact.</strong>
+              <p>The valid stream continues while the rejected record keeps its failure reason for investigation.</p>
+            </article>
+            <article>
+              <span>IF A TASK FAILS</span>
+              <strong>Retry from the last durable boundary.</strong>
+              <p>Kafka offsets, Spark checkpoints, and keyed merges prevent a retry from duplicating business facts.</p>
+            </article>
           </div>
         </div>
       </section>
