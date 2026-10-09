@@ -105,8 +105,9 @@ export async function GET(request: Request) {
     const aov = summary.orders ? summary.revenue / summary.orders : 0;
     const conversion = summary.sessions ? (summary.orders / summary.sessions) * 100 : 0;
     const maxCategory = Math.max(...categories.map((item) => item.revenue), 1);
-    const latestMs = summary.latest_event_at
-      ? Date.now() - new Date(summary.latest_event_at).getTime()
+    const latestEventAt = stream?.last_event_at ?? recent[0]?.event_timestamp;
+    const latestMs = latestEventAt
+      ? Date.now() - new Date(latestEventAt).getTime()
       : Number.POSITIVE_INFINITY;
     const writePaused = summary.database_size_bytes >= databaseWriteGuardBytes;
 

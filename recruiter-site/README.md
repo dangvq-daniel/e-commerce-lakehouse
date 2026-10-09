@@ -57,3 +57,12 @@ payload is `/api/analytics?range=24H`.
 
 The root [`render.yaml`](../render.yaml) defines the free Render web service. Keep
 `DATABASE_URL` secret in Render; do not commit it.
+
+The build copies `public` and `.next/static` into the standalone bundle, and `npm start`
+runs Next.js's generated `.next/standalone/server.js` production server.
+
+If Supavisor reports `Tenant or user not found`, replace Render's `DATABASE_URL` with a
+fresh value copied from the Supabase project's **Connect > Session pooler** panel. Do not
+assemble the pooler hostname or `postgres.<project-ref>` username by hand. Confirm the
+project is running, use port `5432`, substitute the current database password, save the
+secret in Render, and redeploy.

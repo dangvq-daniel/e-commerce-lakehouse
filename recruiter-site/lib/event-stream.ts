@@ -257,19 +257,27 @@ export async function startEventStream() {
   if (started || process.env.DEMO_STREAMING_ENABLED === "false") return;
   started = true;
 
-  try {
-    await initializeDatabase();
-    await tick();
-  } catch (error) {
-    started = false;
-    console.error("Unable to start the demo event stream", error);
-    return;
-  }
+  let initialized = false;
+  let inFlight = false;
+  const heartbeat = async () => {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      if (!initialized) {
+        await initializeDatabase();
+        initialized = true;
+      }
+      await tick();
+    } catch (error) {
+      console.error("Demo event heartbeat failed; will retry", error);
+    } finally {
+      inFlight = false;
+    }
+  };
 
-  const timer = setInterval(() => {
-    void tick().catch((error) => console.error("Demo event tick failed", error));
-  }, streamHeartbeatMs);
+  const timer = setInterval(() => { void heartbeat(); }, streamHeartbeatMs);
   timer.unref();
+  await heartbeat();
   console.log(
     `Synthetic event stream started; event_interval=${eventIntervalMs}ms heartbeat=${streamHeartbeatMs}ms owner=${ownerId}`,
   );

@@ -573,7 +573,7 @@ export default function Home() {
         <div className="hero-copy">
           <div className="live-label"><span className="live-dot" /> Public demo online · full stack verified locally</div>
           <p className="eyebrow">01 · ONE VERIFIED ORDER, END TO END</p>
-          <h1 id="business-title">Follow one order through a modern data platform.</h1>
+          <h1 id="business-title">One order.<br /><em>Every transformation.</em></h1>
           <p className="hero-lead">
             See an actual purchase become a governed sales fact, then inspect the code, metrics, and run evidence
             behind every step.
