@@ -59,7 +59,9 @@ The root [`render.yaml`](../render.yaml) defines the free Render web service. Ke
 `DATABASE_URL` secret in Render; do not commit it.
 
 The build copies `public` and `.next/static` into the standalone bundle, and `npm start`
-runs Next.js's generated `.next/standalone/server.js` production server.
+runs Next.js's generated `.next/standalone/server.js` production server through a launcher
+that binds to `0.0.0.0` and respects Render's `PORT`. Database initialization runs in the
+background so a paused database does not prevent the HTTP server from listening.
 
 If Supavisor reports `Tenant or user not found`, replace Render's `DATABASE_URL` with a
 fresh value copied from the Supabase project's **Connect > Session pooler** panel. Do not

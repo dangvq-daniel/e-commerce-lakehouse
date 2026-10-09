@@ -50,7 +50,7 @@ test("OpenAI hosting is not part of the deployment", async () => {
   const packageJson = JSON.parse(packageJsonText);
 
   assert.doesNotMatch(packageJsonText, /vinext|wrangler|cloudflare/i);
-  assert.equal(packageJson.scripts.start, "node .next/standalone/server.js");
+  assert.equal(packageJson.scripts.start, "node scripts/start-standalone.mjs");
   assert.match(packageJson.scripts.postbuild, /prepare-standalone/);
   assert.match(readme, /Render/);
   assert.match(readme, /Supabase/);
