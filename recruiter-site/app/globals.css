@@ -804,3 +804,37 @@ a:hover > svg,button:hover > svg { transform:translateX(2px); }
  *,*::before,*::after { animation:none !important; transition:none !important; }
  button:hover,a:hover,button:active,a:active { translate:none; scale:none; }
 }
+
+/* Lean copy: let the record, diagram, and chart carry the explanation. */
+.hero { min-height: 640px; padding-top: 150px; padding-bottom: 90px; }
+.hero .eyebrow { margin-top: 0; }
+.hero-lead { max-width: 38ch; }
+.order-to-action { padding: 32px; }
+.signal-order { margin-bottom: 0; padding-bottom: 12px; }
+.signal-order > div > strong { font-size: 1.1rem; font-weight: 500; }
+.signal-order > strong { font-size: 2.4rem; }
+.signal-result { margin-top: 12px; font-size: .7rem; }
+.section-header { align-items: baseline; padding-bottom: 38px; }
+.section-header > h2 { margin: 0; }
+.section-header .chapter-number { align-self: start; margin-top: 12px; }
+.journey-detail { min-height: 540px; }
+.journey-proof strong { margin-left: 0; }
+.environment-tabs { margin-bottom: 28px; }
+.environment-tabs button { min-width: 180px; min-height: 48px; }
+.architecture-overview { min-height: 480px; }
+.evidence-inspector { height: 480px; }
+.card-heading h3 { margin: 0; }
+.analytics-grid > article { min-height: 320px; }
+.event-table-card { min-height: 360px; }
+.dag-story-heading { padding-bottom: 12px; }
+.recovery-paths strong { margin-top: 0; }
+.final-cta { min-height: 300px; }
+@media (max-width: 780px) {
+ .hero { min-height: auto; padding: 114px 0 56px; gap: 36px; }
+ .hero .eyebrow { margin-top: 0; }
+ .section-header { padding-bottom: 28px; }
+ .evidence-inspector { height: auto; min-height: 380px; }
+ .journey-detail { min-height: 500px; }
+ .environment-tabs button { min-width: 0; }
+ .final-cta { min-height: 0; }
+}

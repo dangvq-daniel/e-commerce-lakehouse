@@ -81,91 +81,29 @@ const architectureLanes: {
     label: "Ingestion",
     tone: "ingestion",
     technologies: ["simulator", "kafka", "compute"],
-    bridge: "Spark writes the event into Delta Bronze",
+    bridge: "Kafka → Delta Bronze",
   },
   {
     step: "02",
     label: "Lakehouse",
     tone: "lakehouse",
     technologies: ["bronze", "silver", "dbt", "gold"],
-    bridge: "Delta Gold publishes the model to PostgreSQL",
+    bridge: "Delta Gold → PostgreSQL",
   },
   { step: "03", label: "Serving", tone: "serving", technologies: ["postgres", "metabase"] },
 ];
 
 function signalForEvent(event: RecentEvent) {
-  const profiles: Record<string, { label: string; route: string; action: string }> = {
-    purchase: {
-      label: "Purchase completed",
-      route: "Revenue fact recalculated",
-      action: `${event.value} added to sales views`,
-    },
-    refund: {
-      label: "Refund issued",
-      route: "Net revenue adjusted",
-      action: `${event.value} removed from sales views`,
-    },
-    inventory_update: {
-      label: "Inventory changed",
-      route: "Stock position recalculated",
-      action: "Availability views updated",
-    },
-    product_view: {
-      label: "Product viewed",
-      route: "Demand signal recorded",
-      action: "Product interest views updated",
-    },
-    page_view: {
-      label: "Page viewed",
-      route: "Session activity recorded",
-      action: "Traffic views updated",
-    },
-    add_to_cart: {
-      label: "Item added to cart",
-      route: "Funnel stage advanced",
-      action: "Cart-conversion views updated",
-    },
-    checkout_started: {
-      label: "Checkout started",
-      route: "Checkout intent recorded",
-      action: "Funnel views updated",
-    },
-    session_started: {
-      label: "Session started",
-      route: "Traffic session opened",
-      action: "Active-session views updated",
-    },
-    customer_created: {
-      label: "Customer created",
-      route: "Customer dimension updated",
-      action: "Customer views refreshed",
-    },
-    customer_signup: {
-      label: "Customer signed up",
-      route: "Customer dimension updated",
-      action: "Acquisition views refreshed",
-    },
-    product_review: {
-      label: "Product reviewed",
-      route: "Product engagement recorded",
-      action: "Product feedback views updated",
-    },
-    product_created: {
-      label: "Product created",
-      route: "Product dimension updated",
-      action: "Catalog views refreshed",
-    },
-    price_update: {
-      label: "Product price changed",
-      route: "Product dimension updated",
-      action: "Pricing views refreshed",
-    },
+  const labels: Record<string, string> = {
+    purchase: "Purchase completed", refund: "Refund issued",
+    inventory_update: "Inventory updated", product_view: "Product viewed",
+    page_view: "Page viewed", add_to_cart: "Added to cart",
+    checkout_started: "Checkout started", session_started: "Session started",
+    customer_created: "Customer created", customer_signup: "Customer signed up",
+    product_review: "Product reviewed", product_created: "Product created",
+    price_update: "Price updated",
   };
-  return profiles[event.type] ?? {
-    label: event.type.replaceAll("_", " "),
-    route: "Event validated and published",
-    action: "Relevant business views refreshed",
-  };
+  return labels[event.type] ?? event.type.replaceAll("_", " ");
 }
 
 const fallbackSnapshots: Record<RangeKey, Snapshot> = {
@@ -252,25 +190,11 @@ function BrandMark({ brand, compact = false }: { brand: BrandId; compact?: boole
   );
 }
 
-function SectionHeader({
-  number,
-  eyebrow,
-  title,
-  copy,
-}: {
-  number: string;
-  eyebrow: string;
-  title: string;
-  copy: string;
-}) {
+function SectionHeader({ number, title, id }: { number: string; title: string; id: string }) {
   return (
     <div className="section-header">
-      <span className="chapter-number">{number}</span>
-      <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h2>{title}</h2>
-        <p>{copy}</p>
-      </div>
+      <span className="chapter-number" aria-hidden="true">{number}</span>
+      <h2 id={id}>{title}</h2>
     </div>
   );
 }
@@ -410,7 +334,6 @@ function EvidenceInspector({
         <div>
           <span className="status-pill"><FiCheck /> {technology.status}</span>
           <h3>{technology.name}</h3>
-          <p>{technology.subtitle}</p>
         </div>
       </div>
 
@@ -452,9 +375,7 @@ function EvidenceInspector({
             {!["kafka", "compute", "dbt", "airflow", "postgres"].includes(technology.id) ? (
               <div className="artifact-proof">
                 <FiCheck />
-                <span>CAPTURED IMPLEMENTATION</span>
                 <strong>{technology.metrics.map((metric) => `${metric.label}: ${metric.value}`).join(" · ")}</strong>
-                <p>The downloadable evidence file records this output from the verified local run.</p>
               </div>
             ) : null}
           </div>
@@ -555,7 +476,7 @@ export default function Home() {
       <header className="site-header">
         <a className="identity" href="#top" aria-label="E-commerce Lakehouse home">
           <span>EL</span>
-          <div><strong>E-commerce Lakehouse</strong><small>Data engineering portfolio</small></div>
+          <div><strong>E-commerce Lakehouse</strong></div>
         </a>
         <nav aria-label="Portfolio chapters">
           <a href="#business"><span>01</span> Business</a>
@@ -571,18 +492,15 @@ export default function Home() {
 
       <section className="hero section-shell" id="business" aria-labelledby="business-title">
         <div className="hero-copy">
-          <div className="live-label"><span className="live-dot" /> Public demo online · full stack verified locally</div>
-          <p className="eyebrow">01 · ONE VERIFIED ORDER, END TO END</p>
+          <p className="eyebrow">DATA ENGINEERING PORTFOLIO</p>
           <h1 id="business-title">One order.<br /><em>Every transformation.</em></h1>
           <p className="hero-lead">
-            See an actual purchase become a governed sales fact, then inspect the code, metrics, and run evidence
-            behind every step.
+            From Kafka event to sales fact. Built with Spark, Delta Lake, dbt, and Airflow.
           </p>
           <div className="hero-actions">
             <a className="button primary" href="#journey">Trace the order <FiArrowRight /></a>
             <a className="button secondary" href="#engineering">Inspect the proof</a>
           </div>
-          <p className="hero-proof"><FiCheck /> Verified locally from raw event through published sales fact.</p>
         </div>
         <aside
           className="order-to-action"
@@ -591,48 +509,34 @@ export default function Home() {
           key={`${latestEvent.id}-${latestEvent.time}`}
         >
           <div className="signal-heading">
-            <span className="brief-kicker">LIVE BUSINESS SIGNAL</span>
+            <span className="brief-kicker">{liveData ? "LIVE DEMO" : "SAMPLE EVENT"}</span>
             <span className="verified-badge"><span className="live-dot" /> {latestEvent.status}</span>
           </div>
           <div className="signal-order">
-            <div><span>LATEST EVENT</span><code>{latestEvent.id}</code></div>
+            <div><strong>{liveSignal}</strong><code>{latestEvent.id}</code></div>
             <strong>{latestEvent.value}</strong>
-            <p>{latestEvent.time} · {latestEvent.type.replaceAll("_", " ")}</p>
+            <p>{latestEvent.time}</p>
           </div>
-          <div className="signal-flow">
-            <div><span>01</span><p><small>EVENT RECEIVED</small><strong>{liveSignal.label}</strong></p></div>
-            <FiArrowDown />
-            <div><span>02</span><p><small>PIPELINE ACTION</small><strong>{liveSignal.route}</strong></p></div>
-            <FiArrowDown />
-            <div><span>03</span><p><small>BUSINESS EFFECT</small><strong>{liveSignal.action}</strong></p></div>
-          </div>
-          <p className="signal-result"><FiShield /> Refreshed from durable PostgreSQL event history.</p>
+          <p className="signal-result">Synthetic events · PostgreSQL</p>
         </aside>
       </section>
 
       <section className="business-kpis" aria-label="Live public demo KPIs">
         <div className="section-shell kpi-strip">
-          <div><span>Net revenue · {range}</span><strong>{snapshot.revenue}</strong><small>Purchases less refunds</small></div>
-          <div><span>Completed orders</span><strong>{snapshot.orders}</strong><small>Transactional demand</small></div>
+          <div><span>Net revenue · {range}</span><strong>{snapshot.revenue}</strong></div>
+          <div><span>Orders</span><strong>{snapshot.orders}</strong></div>
           <div className="stream-kpi">
-            <span>Public demo stream</span>
+            <span>{runtime ? `${runtime.totalEvents.toLocaleString()} events` : "Connecting"}</span>
             <strong><i className="live-dot" /> {runtime?.state ?? "waking"}</strong>
-            <small>{runtime ? `${runtime.totalEvents.toLocaleString()} durable events` : "Connecting to Supabase"}</small>
           </div>
         </div>
       </section>
 
       <section className="journey section-shell" id="journey" aria-labelledby="journey-title">
-        <SectionHeader
-          number="02"
-          eyebrow="DATA JOURNEY"
-          title="One order. Five understandable steps."
-          copy="Move from the customer action to the business decision. Each step shows only the record, owner, and proof needed to understand the change."
-        />
+        <SectionHeader number="02" title="Trace an order" id="journey-title" />
         <div className="order-passport">
-          <span>TRACE ID</span><code>evt_23b020fa530b31170bb76f376b608492</code>
           <span>ORDER</span><code>ord_cc83d8c1bc032a018d449bf3754b97f6</code>
-          <strong>Verified local record</strong>
+          <strong>Verified locally</strong>
         </div>
         <div className="journey-workspace">
           <div className="journey-rail" role="tablist" aria-label="Order journey stages">
@@ -654,10 +558,10 @@ export default function Home() {
           <article className="journey-detail" key={currentJourney.id}>
             <div className="journey-title-row">
               <BrandMark brand={currentJourney.brand} />
-              <div><span>STAGE {currentJourney.step}</span><h3>{currentJourney.label}</h3></div>
+              <div><h3>{currentJourney.label}</h3></div>
             </div>
             <p>{currentJourney.explanation}</p>
-            <div className="journey-proof"><FiCheck /><span>IMPLEMENTATION FOOTPRINT</span><strong>{currentJourney.proof}</strong></div>
+            <div className="journey-proof"><FiCheck /><strong>{currentJourney.proof}</strong></div>
             <div className="record-window">
               <div><span /><span /><span /><strong>{currentJourney.technology} output</strong></div>
               <pre><code>{currentJourney.record}</code></pre>
@@ -677,43 +581,21 @@ export default function Home() {
 
       <section className="engineering" id="engineering" aria-labelledby="engineering-title">
         <div className="section-shell">
-          <SectionHeader
-            number="03"
-            eyebrow="LAKEHOUSE ENGINEERING"
-            title="One pipeline, three clear layers."
-            copy="Follow each arrow from the event source to the dashboard. Select any technology to inspect its evidence."
-          />
+          <SectionHeader number="03" title="The architecture" id="engineering-title" />
 
-          <div className="engineering-summary">
-            <div className="engineering-summary-heading">
-              <span className="summary-icon"><FiShield /></span>
-              <div>
-                <span>VERIFIED LOCAL RUN</span>
-                <strong>Every technology links to captured evidence and working code.</strong>
-              </div>
-            </div>
-            <a href="/evidence/verified-local-run.json" download><FiDownload /> Evidence JSON</a>
-          </div>
 
           <div className="environment-tabs" aria-label="Choose architecture environment">
             <button type="button" aria-pressed={architectureMode === "local"} onClick={() => setArchitectureMode("local")}>
-              <strong>Full local lakehouse</strong><span>Verified end to end</span>
+              <strong>Local lakehouse</strong>
             </button>
             <button type="button" aria-pressed={architectureMode === "cloud"} onClick={() => setArchitectureMode("cloud")}>
-              <strong>Public cloud demo</strong><span>Render + Supabase</span>
+              <strong>Cloud demo</strong>
             </button>
           </div>
 
           {architectureMode === "local" ? (
             <div className="architecture-workspace">
               <div className="architecture-overview">
-                <div className="architecture-overview-heading">
-                  <div>
-                    <span>END-TO-END DATA FLOW</span>
-                    <h3>Every arrow has one source and one destination.</h3>
-                  </div>
-                  <p>Choose a technology</p>
-                </div>
 
                 <button
                   type="button"
@@ -721,7 +603,7 @@ export default function Home() {
                   onClick={() => selectTechnology(airflow.id)}
                 >
                   <BrandMark brand="airflow" />
-                  <span><small>CONTROL PLANE</small><strong>Airflow schedules and retries the workflow</strong></span>
+                  <span><strong>Airflow · scheduling & retries</strong></span>
                 </button>
 
                 <div className="architecture-flow" aria-label="Data plane architecture">
@@ -762,15 +644,14 @@ export default function Home() {
           ) : (
             <div className="cloud-proof">
               <div className="cloud-flow">
-                <article><em>01</em><BrandMark brand="render" /><span>Render</span><strong>Resumable event simulator</strong><small>1 budget-safe write / minute</small></article>
-                <article><em>02</em><BrandMark brand="supabase" /><span>Supabase</span><strong>Durable PostgreSQL history</strong><small>{runtime?.totalEvents.toLocaleString() ?? "Live"} stored events</small></article>
-                <article><em>03</em><BrandMark brand="render" /><span>Render</span><strong>Recruiter data product</strong><small>Live analytics + proof artifact</small></article>
+                <article><em>01</em><BrandMark brand="render" /><span>Render</span><strong>Event simulator</strong></article>
+                <article><em>02</em><BrandMark brand="supabase" /><span>Supabase</span><strong>PostgreSQL</strong></article>
+                <article><em>03</em><BrandMark brand="render" /><span>Render</span><strong>Dashboard</strong></article>
               </div>
               <div className="cloud-boundary">
                 <FiShield />
                 <div>
-                  <strong>Cost boundary: intentionally not the full architecture</strong>
-                  <p>Kafka, Spark/Databricks, Delta, dbt, Airflow, and Metabase are proven by the captured local run—not falsely represented as free-tier cloud services.</p>
+                  <p>The cloud demo runs on Render and Supabase. The full lakehouse is verified locally.</p>
                 </div>
               </div>
               <div className="cloud-metrics">
@@ -783,12 +664,7 @@ export default function Home() {
       </section>
 
       <section className="analytics section-shell" id="analytics" aria-labelledby="analytics-title">
-        <SectionHeader
-          number="04"
-          eyebrow="BUSINESS ANALYTICS"
-          title="Curated facts become decisions, not just charts."
-          copy="The public demo reads durable PostgreSQL history. Every view is paired with the business question it answers."
-        />
+        <SectionHeader number="04" title="Sales analytics" id="analytics-title" />
         <div className="analytics-toolbar">
           <div role="group" aria-label="Choose analytics view">
             <button type="button" aria-pressed={analyticsView === "performance"} onClick={() => setAnalyticsView("performance")}>Performance</button>
@@ -804,12 +680,11 @@ export default function Home() {
         {analyticsView === "performance" ? (
           <div className="analytics-grid">
             <article className="trend-card">
-              <div className="card-heading"><div><span>EXECUTIVE QUESTION</span><h3>Is commercial performance healthy?</h3></div><strong>{snapshot.revenue}</strong></div>
+              <div className="card-heading"><h3>Net revenue</h3><strong>{snapshot.revenue}</strong></div>
               <BarChart values={snapshot.chart} labels={snapshot.labels} />
-              <div className="decision-caption"><FiCheck /><p><strong>Decision output</strong> Compare revenue movement with order volume and average order value before investigating category mix.</p></div>
             </article>
             <article className="category-card">
-              <div className="card-heading"><div><span>MERCHANDISING QUESTION</span><h3>Which categories drive revenue?</h3></div></div>
+              <div className="card-heading"><h3>Revenue by category</h3></div>
               <div className="category-list">
                 {snapshot.categories.map((category, index) => (
                   <div key={category.name}>
@@ -820,14 +695,13 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-              <div className="decision-caption"><FiCheck /><p><strong>Decision output</strong> Prioritize stock, campaigns, and product analysis around the highest-value categories.</p></div>
             </article>
           </div>
         ) : (
           <article className="event-table-card">
             <div className="event-table-heading">
-              <div><span className="live-dot" /><strong>Live PostgreSQL event history</strong></div>
-              <p>Next budget-safe write in <strong>{runtime?.writePaused ? "paused" : `${secondsUntilNext}s`}</strong></p>
+              <div><span className="live-dot" /><strong>Recent events</strong></div>
+              <p>Next event in <strong>{runtime?.writePaused ? "paused" : `${secondsUntilNext}s`}</strong></p>
             </div>
             <div className="event-table">
               <div className="event-row table-head"><span>Time</span><span>Event</span><span>Event ID</span><span>Value</span><span>Status</span></div>
@@ -843,16 +717,10 @@ export default function Home() {
 
       <section className="reliability" id="reliability" aria-labelledby="reliability-title">
         <div className="section-shell">
-          <SectionHeader
-            number="05"
-            eyebrow="ENGINEERING RELIABILITY"
-            title="One DAG, four responsibilities."
-            copy="Airflow coordinates the work; it does not transform the data. Read the run from left to right, then see the two recovery paths that protect the result."
-          />
+          <SectionHeader number="05" title="Built to recover" id="reliability-title" />
           <div className="dag-story">
             <div className="dag-story-heading">
-              <div><BrandMark brand="airflow" /><span><small>LAST VERIFIED RUN</small><strong>Completed successfully</strong></span></div>
-              <p>Airflow controls order and retries. Spark and dbt perform the work.</p>
+              <div><BrandMark brand="airflow" /><span><strong>Airflow · verified run</strong></span></div>
             </div>
             <div className="dag-sequence" aria-label="Airflow DAG">
               {[
@@ -871,14 +739,12 @@ export default function Home() {
           </div>
           <div className="recovery-paths">
             <article>
-              <span>IF DATA IS INVALID</span>
-              <strong>Quarantine it, keep Bronze intact.</strong>
-              <p>The valid stream continues while the rejected record keeps its failure reason for investigation.</p>
+              <strong>Invalid records are quarantined.</strong>
+              <p>Bronze preserves the original payload and failure reason.</p>
             </article>
             <article>
-              <span>IF A TASK FAILS</span>
-              <strong>Retry from the last durable boundary.</strong>
-              <p>Kafka offsets, Spark checkpoints, and keyed merges prevent a retry from duplicating business facts.</p>
+              <strong>Retries don’t duplicate facts.</strong>
+              <p>Kafka offsets, Spark checkpoints, and keyed merges preserve progress.</p>
             </article>
           </div>
         </div>
@@ -886,23 +752,22 @@ export default function Home() {
 
       <section className="final-cta">
         <div>
-          <p className="eyebrow">EXPLORE THE IMPLEMENTATION</p>
-          <h2>The diagrams are now entry points into working code.</h2>
-          <p>Review the captured evidence, follow the repository artifacts, or run the complete lakehouse locally with Docker Compose.</p>
+          <h2>Inspect the source.</h2>
+          <p>Run the full lakehouse with Docker Compose.</p>
         </div>
         <div>
           <a className="button primary" href="https://github.com/dangvq-daniel/e-commerce-lakehouse" target="_blank" rel="noreferrer">
             Open repository <FiExternalLink />
           </a>
           <a className="button secondary" href="/evidence/verified-local-run.json">
-            Evidence artifact <FiDownload />
+            Run evidence <FiDownload />
           </a>
         </div>
       </section>
 
       <footer>
-        <a className="identity" href="#top"><span>EL</span><div><strong>E-commerce Lakehouse</strong><small>Synthetic data · documented evidence</small></div></a>
-        <p>Render + Supabase public demo · full local lakehouse in the repository</p>
+        <a className="identity" href="#top"><span>EL</span><div><strong>E-commerce Lakehouse</strong></div></a>
+        <p>Synthetic data · verified local run</p>
         <a href="#top">Back to top ↑</a>
       </footer>
     </main>
